@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean-up Robot Simulation</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --text: #1b1f24; --muted: #5b6470; --border: #dde1e7;
+    --accent: #2459d6; --accent-soft: #e7eefc; --floor: #c8ccd1; --floor-line: #b3b8be;
+    --robot: #2f3a4a; --ok: #15803d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101317; --panel: #191e25; --text: #e7eaee; --muted: #9aa4b1; --border: #2b323c;
+      --accent: #7aa7ff; --accent-soft: #1b2942; --floor: #4b5056; --floor-line: #3e4348;
+      --robot: #d2d8e0; --ok: #4ade80;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101317; --panel: #191e25; --text: #e7eaee; --muted: #9aa4b1; --border: #2b323c;
+    --accent: #7aa7ff; --accent-soft: #1b2942; --floor: #4b5056; --floor-line: #3e4348;
+    --robot: #d2d8e0; --ok: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .lede { margin: 0; color: var(--muted); max-width: 70ch; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: 0.92em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 20px 0 16px; }
+  button, select, input[type="text"] {
+    font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px; min-height: 38px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); font-weight: 600; }
+  .status { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .status strong { color: var(--text); }
+  .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
+  .side { display: grid; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  #world { aspect-ratio: 3 / 2; }
+  #cam { aspect-ratio: 4 / 3; }
+  .note { margin: 10px 0 0; font-size: 0.9rem; color: var(--muted); }
+  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  ol.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 7px 8px; border-radius: 8px; color: var(--muted); }
+  ol.steps .num { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); display: grid; place-items: center; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+  ol.steps .title { font-weight: 600; }
+  ol.steps .detail { display: none; font-size: 0.92rem; margin-top: 2px; }
+  ol.steps .uses { display: none; margin-top: 6px; font-size: 0.8rem; color: var(--accent); font-weight: 600; }
+  ol.steps li.active { background: var(--accent-soft); color: var(--text); }
+  ol.steps li.active .num { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+  ol.steps li.active .detail, ol.steps li.active .uses { display: block; }
+  .finished { display: none; margin: 10px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--ok); font-weight: 600; }
+  .finished.show { display: block; }
+  .live { margin-top: 16px; }
+  .live summary { cursor: pointer; font-weight: 600; }
+  .live .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+  .live img { display: block; max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+  .live label { color: var(--muted); font-size: 0.9rem; }
+  @media (max-width: 820px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .status { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>How the clean-up robot works</h1>
+    <p class="lede">An animation of the logic in <code>cleanup.py</code>: search, drive, pick up, place on the left, repeat.
+      This is a simulation, not a live view of your robot, and it is tidier than real life: the real robot is slower and will miss sometimes.</p>
+  </header>
+
+  <div class="controls">
+    <button id="play" class="primary" type="button">Pause</button>
+    <button id="restart" type="button">Restart</button>
+    <button id="shuffle" type="button">Move objects</button>
+    <label for="speed" class="note" style="margin:0">Speed</label>
+    <select id="speed">
+      <option value="0.5">0.5×</option>
+      <option value="1" selected>1×</option>
+      <option value="2">2×</option>
+      <option value="4">4×</option>
+    </select>
+    <span class="status">Moved to the left: <strong id="count">0 of 3</strong></span>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>The floor, seen from above</h2>
+      <canvas id="world" aria-label="Top-down view of the robot and three objects"></canvas>
+      <p class="note">The shaded wedge is what the camera can see. The robot has no map: it only reacts to what is inside that wedge. The real camera spots small objects only within about a metre, so the real floor area must be small.</p>
+      <p class="note">Here, objects marked "moved" are ignored. The real robot cannot tell a moved object from a new one, so it simply stops after three pick-ups.</p>
+    </section>
+
+    <div class="side">
+      <section class="panel">
+        <h2>What the camera sees</h2>
+        <canvas id="cam" aria-label="Simulated camera picture"></canvas>
+        <p class="note" id="poseNote"></p>
+      </section>
+
+      <section class="panel">
+        <h2>What the program is doing</h2>
+        <ol class="steps" id="steps"></ol>
+        <p class="finished" id="finished">Finished: every object has been picked up and placed on the left.</p>
+      </section>
+    </div>
+  </div>
+
+  <details class="panel live">
+    <summary>Live camera from the real robot</summary>
+    <p class="note">Works only while your laptop is on the same network as the robot. The clean-up view exists only while <code>cleanup.py</code> is running.</p>
+    <div class="row">
+      <label for="host">Robot address</label>
+      <input type="text" id="host" value="ubuntu.local" size="16" spellcheck="false">
+      <button type="button" data-topic="/cleanup/image">Clean-up view</button>
+      <button type="button" data-topic="/usb_cam/image_raw">Plain camera</button>
+      <button type="button" id="liveStop">Stop</button>
+    </div>
+    <p class="note" id="liveMsg"></p>
+    <img id="liveImg" alt="Live robot camera" hidden>
+  </details>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- constants ----------
+  var W = 600, H = 400, CW = 320, CH = 240;
+  var FOV = 0.52, RANGE = 720, BOX_RANGE = 720, NEAR = 66, BOX_STOP = 80, GRAB = 34;
+  var TURN_SEARCH = 0.8, TURN_AIM = 1.3, SPEED_DRIVE = 62, SPEED_FINE = 24;
+
+  var STEPS = [
+    { t: 'Search for an object', uses: 'Uses: Look pose (key 1)',
+      d: 'The arm is in the Look pose, so the camera points forward. The robot spins slowly until a red, yellow or pink blob shows up in the picture.' },
+    { t: 'Drive to the object', uses: 'Uses: colour detection only',
+      d: 'It turns until the blob is in the middle of the picture, then drives forward. The closer the object, the lower it sits in the picture. It stops when the blob reaches the dashed line.' },
+    { t: 'Look down', uses: 'Uses: Ready pose (key 2)',
+      d: 'The arm switches to the Ready pose. The same camera now looks straight down at the open gripper.' },
+    { t: 'Line up', uses: 'Uses: Grab spot (key c)',
+      d: 'The robot slides sideways and forward in small moves until the object sits on the green cross.' },
+    { t: 'Pick up', uses: 'Uses: Grip pose (key 3)',
+      d: 'The gripper closes to the taught value, then the arm lifts back to the Look pose with the object held.' },
+    { t: 'Place on the left', uses: 'Uses: Drop pose (key 4)',
+      d: 'The wheels stay still. The arm swings to the robot\'s left, lowers the object to the floor and lets go. Then it starts again from step 1.' }
+  ];
+  var PHASE_STEP = { searchObj: 0, approachObj: 1, toReady: 2, align: 3, pick: 4, toLook: 4, place: 5, done: -1 };
+  var PHASE_LABEL = { searchObj: 'Searching for object', approachObj: 'Approaching object', toReady: 'Switching to Ready pose',
+                      align: 'Lining up on object', pick: 'Picking up', toLook: 'Lifting', place: 'Placing on the left', done: 'Finished' };
+  var LEFT_REACH = 50;
+
+  var LAYOUT = [
+    { id: 'red', kind: 'container', color: '#d7343c', x: 150, y: 95, rot: 0 },
+    { id: 'yellow', kind: 'container', color: '#e2c400', x: 470, y: 120, rot: 0 },
+    { id: 'pink', kind: 'marker', color: '#ff4f9a', x: 455, y: 315, rot: 0.5 }
+  ];
+  var holder = { x: 95, y: 320, r: 24 };
+  var START = { x: 300, y: 235, h: -Math.PI / 2 };
+
+  // ---------- state ----------
+  var robot, items, S, playing = true, speed = 1, lastStep = -2;
+
+  function reset() {
+    robot = { x: START.x, y: START.y, h: START.h };
+    items = LAYOUT.map(function (o) {
+      return { id: o.id, kind: o.kind, color: o.color, x: o.x, y: o.y, rot: o.rot, collected: false };
+    });
+    S = { phase: 'searchObj', t: 0, spun: 0, seen: 0, target: null, carrying: null, pose: 'look', grip: 1, count: 0, dropFrom: null };
+    lastStep = -2;
+  }
+
+  // ---------- geometry ----------
+  function fwd() { return { x: Math.cos(robot.h), y: Math.sin(robot.h) }; }
+  function right() { return { x: -Math.sin(robot.h), y: Math.cos(robot.h) }; }
+  function grabPoint() { var f = fwd(); return { x: robot.x + f.x * GRAB, y: robot.y + f.y * GRAB }; }
+  function rel(p) {
+    var dx = p.x - robot.x, dy = p.y - robot.y, f = fwd(), r = right();
+    var along = dx * f.x + dy * f.y, side = dx * r.x + dy * r.y;
+    return { dist: Math.hypot(dx, dy), bearing: Math.atan2(side, along) };
+  }
+  function visible(p, range) { var q = rel(p); return Math.abs(q.bearing) < FOV && q.dist < (range || RANGE) && q.dist > 20; }
+  function sign(v) { return v < 0 ? -1 : 1; }
+
+  // ---------- simulation ----------
+  function spin(dt) { robot.h += TURN_SEARCH * dt; S.spun += TURN_SEARCH * dt; }
+
+  function approach(p, stopDist, dt) {
+    var q = rel(p);
+    var close = q.dist <= stopDist;
+    if (close && Math.abs(q.bearing) < 0.1) return true;
+    if (Math.abs(q.bearing) > 0.14 || close) {
+      robot.h += sign(q.bearing) * Math.min(TURN_AIM * dt, Math.abs(q.bearing));
+    } else {
+      var f = fwd();
+      robot.x += f.x * SPEED_DRIVE * dt;
+      robot.y += f.y * SPEED_DRIVE * dt;
+      robot.h += q.bearing * 1.5 * dt;
+    }
+    return false;
+  }
+
+  function update(dt) {
+    var G, f, e, len, k;
+    switch (S.phase) {
+      case 'searchObj': {
+        var best = null, bestD = 1e9;
+        items.forEach(function (it) {
+          if (!it.collected && visible(it)) { var d = rel(it).dist; if (d < bestD) { bestD = d; best = it; } }
+        });
+        if (best) {
+          S.seen += dt;
+          if (S.seen > 0.4) { S.target = best; S.phase = 'approachObj'; }
+        } else {
+          S.seen = 0; spin(dt);
+          if (S.spun > Math.PI * 2 + 0.3) S.phase = 'done';
+        }
+        break;
+      }
+      case 'approachObj':
+        if (approach(S.target, NEAR, dt)) { S.phase = 'toReady'; S.t = 0; }
+        break;
+      case 'toReady':
+        S.t += dt;
+        if (S.t > 0.9) { S.pose = 'ready'; S.phase = 'align'; }
+        break;
+      case 'align':
+        G = grabPoint();
+        e = { x: S.target.x - G.x, y: S.target.y - G.y };
+        len = Math.hypot(e.x, e.y);
+        if (len < 1.5) { S.phase = 'pick'; S.t = 0; }
+        else { k = Math.min(SPEED_FINE * dt, len) / len; robot.x += e.x * k; robot.y += e.y * k; }
+        break;
+      case 'pick':
+        S.t += dt;
+        S.grip = Math.max(0.25, 1 - S.t / 0.8 * 0.75);
+        if (S.t > 1.2) { S.carrying = S.target; S.phase = 'toLook'; S.t = 0; }
+        break;
+      case 'toLook':
+        S.t += dt;
+        if (S.t > 0.8) { S.pose = 'look'; S.phase = 'place'; S.t = 0; }
+        break;
+      case 'place':
+        S.t += dt;
+        if (S.carrying) {
+          k = Math.min(1, S.t / 0.9);
+          var ang = robot.h - k * Math.PI / 2, rad = GRAB + (LEFT_REACH - GRAB) * k;
+          S.carrying.x = robot.x + Math.cos(ang) * rad;
+          S.carrying.y = robot.y + Math.sin(ang) * rad;
+          if (S.t > 1.3) { S.carrying.collected = true; S.carrying = null; S.target = null; S.count += 1; S.grip = 1; }
+        }
+        if (S.t > 2.0) {
+          S.phase = S.count >= items.length ? 'done' : 'searchObj';
+          S.spun = 0; S.seen = 0;
+        }
+        break;
+    }
+    if (S.carrying && S.phase !== 'place') { G = grabPoint(); S.carrying.x = G.x; S.carrying.y = G.y; }
+    void f;
+  }
+
+  // ---------- drawing helpers ----------
+  var C = {};
+  function readColours() {
+    var s = getComputedStyle(document.documentElement);
+    ['floor', 'floor-line', 'robot', 'accent', 'text', 'muted', 'panel', 'ok'].forEach(function (n) {
+      C[n] = s.getPropertyValue('--' + n).trim();
+    });
+  }
+  function fit(cv, w, h) {
+    var d = window.devicePixelRatio || 1;
+    cv.width = Math.round(w * d); cv.height = Math.round(h * d);
+    var c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); return c;
+  }
+  function rr(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.arcTo(x + w, y, x + w, y + r, r);
+    c.lineTo(x + w, y + h - r); c.arcTo(x + w, y + h, x + w - r, y + h, r);
+    c.lineTo(x + r, y + h); c.arcTo(x, y + h, x, y + h - r, r);
+    c.lineTo(x, y + r); c.arcTo(x, y, x + r, y, r); c.closePath();
+  }
+  function drawItem(c, it, x, y, scale, rot) {
+    c.save(); c.translate(x, y); c.rotate(rot); c.scale(scale, scale);
+    if (it.kind === 'marker') {
+      c.fillStyle = it.color; rr(c, -17, -5, 34, 10, 3); c.fill();
+      c.fillStyle = '#17181a'; rr(c, -17, -5, 9, 10, 3); c.fill();
+    } else {
+      c.fillStyle = it.color; rr(c, -11, -11, 22, 22, 6); c.fill();
+      c.globalAlpha = 0.28; c.fillStyle = '#ffffff'; rr(c, -7, -8, 14, 6, 3); c.fill(); c.globalAlpha = 1;
+    }
+    c.restore();
+  }
+  function label(c, text, x, y, colour, size) {
+    c.font = '600 ' + (size || 11) + 'px system-ui, sans-serif'; c.fillStyle = colour; c.fillText(text, x, y);
+  }
+
+  // ---------- world view ----------
+  var wc, cc;
+  function drawWorld() {
+    var c = wc, i, G = grabPoint(), f = fwd();
+    c.clearRect(0, 0, W, H);
+    c.fillStyle = C.floor; c.fillRect(0, 0, W, H);
+    c.strokeStyle = C['floor-line']; c.lineWidth = 1;
+    for (i = 100; i < W; i += 100) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i, H); c.stroke(); }
+    for (i = 100; i < H; i += 100) { c.beginPath(); c.moveTo(0, i); c.lineTo(W, i); c.stroke(); }
+
+    // camera coverage
+    c.fillStyle = C.accent; c.globalAlpha = 0.16;
+    if (S.pose === 'look') {
+      c.beginPath(); c.moveTo(robot.x, robot.y); c.arc(robot.x, robot.y, RANGE, robot.h - FOV, robot.h + FOV); c.closePath(); c.fill();
+    } else {
+      c.save(); c.translate(G.x, G.y); c.rotate(robot.h + Math.PI / 2); rr(c, -30, -34, 60, 50, 6); c.fill(); c.restore();
+    }
+    c.globalAlpha = 1;
+
+    // objects on the floor
+    items.forEach(function (it) {
+      if (it === S.carrying) return;
+      drawItem(c, it, it.x, it.y, 1, it.rot);
+      if (it.collected) {
+        c.strokeStyle = C.ok; c.lineWidth = 2;
+        c.beginPath(); c.arc(it.x, it.y, 22, 0, Math.PI * 2); c.stroke();
+        label(c, 'moved', it.x - 17, it.y + 36, C.text);
+      }
+      if (it === S.target) {
+        c.strokeStyle = C.accent; c.lineWidth = 2; c.setLineDash([5, 4]);
+        c.beginPath(); c.arc(it.x, it.y, 24, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
+      }
+    });
+
+    // robot body
+    c.save(); c.translate(robot.x, robot.y); c.rotate(robot.h + Math.PI / 2);
+    c.fillStyle = '#131416';
+    [[-27, -24], [19, -24], [-27, 8], [19, 8]].forEach(function (p) { rr(c, p[0], p[1], 8, 16, 2); c.fill(); });
+    c.fillStyle = C.robot; rr(c, -19, -26, 38, 52, 7); c.fill();
+    c.restore();
+
+    // arm and gripper
+    var P = G;
+    if (S.phase === 'place') {
+      P = S.carrying ? { x: S.carrying.x, y: S.carrying.y }
+        : { x: robot.x + Math.cos(robot.h - Math.PI / 2) * LEFT_REACH, y: robot.y + Math.sin(robot.h - Math.PI / 2) * LEFT_REACH };
+    }
+    var dx = P.x - robot.x, dy = P.y - robot.y, L = Math.hypot(dx, dy) || 1;
+    var ux = dx / L, uy = dy / L, px = -uy, py = ux;
+    c.strokeStyle = C.accent; c.lineWidth = 6; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(robot.x + ux * 6, robot.y + uy * 6); c.lineTo(P.x - ux * 14, P.y - uy * 14); c.stroke();
+    if (S.carrying) drawItem(c, S.carrying, S.carrying.x, S.carrying.y, 1, S.carrying.rot);
+    var off = 7 + 9 * S.grip;
+    c.strokeStyle = '#131416'; c.lineWidth = 4;
+    [-1, 1].forEach(function (s) {
+      c.beginPath();
+      c.moveTo(P.x + px * off * s - ux * 14, P.y + py * off * s - uy * 14);
+      c.lineTo(P.x + px * off * s + ux * 4, P.y + py * off * s + uy * 4); c.stroke();
+    });
+    c.lineCap = 'butt';
+    void f;
+  }
+
+  // ---------- camera view ----------
+  function camY(dist) { return CH * (0.2 + 0.68 * Math.min(1, 46 / Math.max(dist, 46))); }
+  function camSize(dist) { return Math.max(8, Math.min(64, 2500 / dist)); }
+
+  function drawCam() {
+    var c = cc, gx = CW / 2, gy = CH * 0.68;
+    c.clearRect(0, 0, CW, CH);
+    c.fillStyle = C.floor; c.fillRect(0, 0, CW, CH);
+
+    if (S.pose === 'look') {
+      c.fillStyle = C['floor-line']; c.fillRect(0, 0, CW, CH * 0.16);
+      var list = items.filter(function (it) { return it !== S.carrying; })
+        .map(function (it) { return { it: it, q: rel(it) }; });
+      list.sort(function (a, b) { return b.q.dist - a.q.dist; });
+      list.forEach(function (o) {
+        var q = o.q;
+        var reach = o.box ? BOX_RANGE : RANGE;
+        if (Math.abs(q.bearing) > FOV * 1.2 || q.dist > reach * 1.05 || q.dist < 22) return;
+        var x = CW / 2 + q.bearing / FOV * (CW / 2), y = camY(q.dist), s = camSize(q.dist);
+        var detected = Math.abs(q.bearing) < FOV && q.dist < reach && !(o.it && o.it.collected);
+        if (o.box) {
+          var bw = s * 1.5, bh = s * 2;
+          c.fillStyle = '#1b1d20'; rr(c, x - bw / 2, y - bh + s / 2, bw, bh, 4); c.fill();
+          if (detected) {
+            c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.strokeRect(x - bw / 2 - 3, y - bh + s / 2 - 3, bw + 6, bh + 6);
+            label(c, 'box', x - bw / 2 - 3, y - bh + s / 2 - 8, '#ffffff');
+          }
+        } else {
+          var k = s / 22, hw = (o.it.kind === 'marker' ? 17 : 11) * k + 3, hh = 11 * k + 3;
+          drawItem(c, o.it, x, y, k, o.it.kind === 'marker' ? 0 : 0);
+          if (detected) {
+            c.strokeStyle = o.it.color; c.lineWidth = 2; c.strokeRect(x - hw, y - hh, hw * 2, hh * 2);
+            label(c, o.it.id, x - hw, y - hh - 5, o.it.color);
+          }
+        }
+      });
+      var lineY = camY(NEAR) + camSize(NEAR) / 2;
+      c.strokeStyle = C.text; c.globalAlpha = 0.55; c.lineWidth = 1; c.setLineDash([6, 5]);
+      c.beginPath(); c.moveTo(0, lineY); c.lineTo(CW, lineY); c.stroke(); c.setLineDash([]);
+      label(c, 'close enough', CW - 78, lineY - 5, C.text, 10); c.globalAlpha = 1;
+      if (S.carrying) {
+        drawItem(c, S.carrying, CW / 2, CH - 14, 1.6, 0);
+        c.fillStyle = '#131416'; rr(c, CW / 2 - 40, CH - 30, 12, 30, 3); c.fill(); rr(c, CW / 2 + 28, CH - 30, 12, 30, 3); c.fill();
+      }
+    } else {
+      var sc = 3.2, f = fwd(), r = right(), G = grabPoint();
+      items.forEach(function (it) {
+        if (it.collected) return;
+        var dx = it.x - G.x, dy = it.y - G.y;
+        var x = gx + (dx * r.x + dy * r.y) * sc, y = gy - (dx * f.x + dy * f.y) * sc;
+        if (x < -60 || x > CW + 60 || y < -60 || y > CH + 60) return;
+        drawItem(c, it, x, y, sc, it.rot - (robot.h + Math.PI / 2));
+        var hw = (it.kind === 'marker' ? 19 : 11) * sc + 3;
+        c.strokeStyle = it.color; c.lineWidth = 2; c.strokeRect(x - hw, y - hw, hw * 2, hw * 2);
+        label(c, it.id, x - hw, y - hw - 5, it.color);
+      });
+      c.strokeStyle = '#00d455'; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(gx - 10, gy); c.lineTo(gx + 10, gy); c.moveTo(gx, gy - 10); c.lineTo(gx, gy + 10); c.stroke();
+      var off = 40 + 34 * S.grip;
+      c.fillStyle = '#131416';
+      rr(c, gx - off - 16, gy - 14, 16, CH - gy + 20, 4); c.fill();
+      rr(c, gx + off, gy - 14, 16, CH - gy + 20, 4); c.fill();
+    }
+    label(c, PHASE_LABEL[S.phase], 8, 18, '#00d455', 13);
+  }
+
+  // ---------- page wiring ----------
+  var stepsEl = document.getElementById('steps');
+  STEPS.forEach(function (s, i) {
+    var li = document.createElement('li');
+    var num = document.createElement('span'); num.className = 'num'; num.textContent = String(i + 1);
+    var body = document.createElement('div');
+    var t = document.createElement('div'); t.className = 'title'; t.textContent = s.t;
+    var d = document.createElement('div'); d.className = 'detail'; d.textContent = s.d;
+    var u = document.createElement('div'); u.className = 'uses'; u.textContent = s.uses;
+    body.appendChild(t); body.appendChild(d); body.appendChild(u);
+    li.appendChild(num); li.appendChild(body); stepsEl.appendChild(li);
+  });
+  var countEl = document.getElementById('count'), poseNote = document.getElementById('poseNote'),
+      finishedEl = document.getElementById('finished');
+
+  function syncPage() {
+    var step = PHASE_STEP[S.phase];
+    if (step !== lastStep) {
+      Array.prototype.forEach.call(stepsEl.children, function (li, i) { li.classList.toggle('active', i === step); });
+      finishedEl.classList.toggle('show', S.phase === 'done');
+      lastStep = step;
+    }
+    countEl.textContent = S.count + ' of ' + items.length;
+    poseNote.textContent = S.pose === 'look'
+      ? 'Look pose: the camera points forward. Left or right in the picture tells the robot which way to turn; lower in the picture means closer.'
+      : 'Ready pose: the camera looks straight down at the gripper. The green cross is the taught grab spot.';
+  }
+
+  var last = 0;
+  function frame(now) {
+    var base = Math.min(0.05, (now - last) / 1000 || 0); last = now;
+    if (playing) {
+      var n = Math.max(1, Math.round(speed)), dt = base * speed / n;
+      for (var i = 0; i < n; i++) update(dt);
+    }
+    drawWorld(); drawCam(); syncPage();
+    requestAnimationFrame(frame);
+  }
+
+  var playBtn = document.getElementById('play');
+  function setPlaying(v) { playing = v; playBtn.textContent = v ? 'Pause' : 'Play'; }
+  playBtn.addEventListener('click', function () {
+    if (S.phase === 'done') { reset(); setPlaying(true); } else setPlaying(!playing);
+  });
+  document.getElementById('restart').addEventListener('click', function () { reset(); setPlaying(true); });
+  document.getElementById('speed').addEventListener('change', function (e) { speed = parseFloat(e.target.value) || 1; });
+  document.getElementById('shuffle').addEventListener('click', function () {
+    var placed = [];
+    LAYOUT.forEach(function (o) {
+      for (var tries = 0; tries < 200; tries++) {
+        var x = 60 + Math.random() * (W - 120), y = 50 + Math.random() * (H - 100);
+        var ok = Math.hypot(x - START.x, y - START.y) > 95 && Math.hypot(x - holder.x, y - holder.y) > 90 &&
+                 placed.every(function (p) { return Math.hypot(x - p.x, y - p.y) > 65; });
+        if (ok) { o.x = x; o.y = y; if (o.kind === 'marker') o.rot = Math.random() * Math.PI; break; }
+      }
+      placed.push({ x: o.x, y: o.y });
+    });
+    reset(); setPlaying(true);
+  });
+
+  // live camera from the real robot
+  var liveImg = document.getElementById('liveImg'), liveMsg = document.getElementById('liveMsg');
+  document.querySelectorAll('button[data-topic]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var host = document.getElementById('host').value.trim();
+      if (!/^[A-Za-z0-9.\-]+$/.test(host)) { liveMsg.textContent = 'Enter a host name or IP address, such as ubuntu.local.'; return; }
+      liveMsg.textContent = 'Connecting to ' + host + '…';
+      liveImg.hidden = false;
+      liveImg.src = 'http://' + host + ':8080/stream?topic=' + b.getAttribute('data-topic');
+    });
+  });
+  liveImg.addEventListener('load', function () { liveMsg.textContent = ''; });
+  liveImg.addEventListener('error', function () {
+    if (!liveImg.getAttribute('src')) return;
+    liveImg.hidden = true;
+    liveMsg.textContent = 'No picture. Check the laptop is on the robot\'s network, the camera is working, and (for the clean-up view) that cleanup.py is running.';
+  });
+  document.getElementById('liveStop').addEventListener('click', function () {
+    liveImg.removeAttribute('src'); liveImg.hidden = true; liveMsg.textContent = '';
+  });
+
+  // start
+  readColours();
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', readColours);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) playing = false;
+  }
+  wc = fit(document.getElementById('world'), W, H);
+  cc = fit(document.getElementById('cam'), CW, CH);
+  reset(); setPlaying(playing);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

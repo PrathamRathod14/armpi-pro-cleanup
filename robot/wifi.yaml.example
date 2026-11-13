@@ -1,0 +1,10 @@
+# Robot Wi-Fi settings. On the robot this file lives at /etc/Hiwonder/wifi.yaml
+# (edit with: sudo nano /etc/Hiwonder/wifi.yaml, then sudo reboot).
+#
+# mode: client  -> join the network below (phone hotspot: 2.4 GHz, WPA2)
+# mode: ap      -> the robot makes its own hotspot (HW-xxxxxxxx, robot at 192.168.149.1)
+# If the robot cannot join the network within about 30 s, it falls back to its own hotspot.
+mode: client
+client_mode:
+  ssid: "your_hotspot_name"
+  password: "your_hotspot_password"
