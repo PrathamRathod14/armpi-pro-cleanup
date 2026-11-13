@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-# Find the blue cube anywhere around the robot, drive to it, grab it with
-# inverse kinematics, and place it on the robot's left. Retries until it succeeds.
-#   python3 ~/fetch_blue.py          Stop: Ctrl+C (the wheels stop)
-# Needs the taught LOOK and DROP poses in ~/cleanup_poses.json.
+# Find the blue cube, line the gripper up over it with inverse kinematics,
+# grab it and place it on the robot's left. Retries until it succeeds.
+#   python3 ~/fetch_blue.py look   detection test only: nothing moves
+#   python3 ~/fetch_blue.py arm    arm only: the wheels never move
+#   python3 ~/fetch_blue.py        full: search and drive, then grab (floor only)
+# Stop: Ctrl+C. Needs the taught LOOK and DROP poses in ~/cleanup_poses.json.
 import os, sys, json, time, threading, signal
 import numpy as np
 import cv2
@@ -14,22 +16,28 @@ from chassis_control.msg import SetVelocity
 from armpi_pro import bus_servo_control
 from kinematics import ik_transform
 
+MODE = sys.argv[1] if len(sys.argv) > 1 else 'full'
+ARM_ONLY = MODE in ('arm', 'look')
+
 # ---------------- detection ----------------
-BLUE = ((95, 110, 120), (130, 255, 255))   # HSV range of the blue cube
-MIN_AREA = 150             # smallest patch, in pixels (small = can see the cube from farther away)
-MIN_SOLIDITY = 0.80        # patch must be solid, not ragged (rejects reflections and clothing folds)
-MIN_FILL = 0.50            # patch must fill at least half of its box (rejects lines and edges)
-MAX_ASPECT = 2.5           # patch may not be much longer than wide
-CONFIRM = 3                # pictures in a row before a detection is believed
-# ---------------- wheels ----------------
-TURN_RATE = 0.25           # turning speed while searching and aiming
+STRICT = ((95, 110, 120), (130, 255, 255))   # to FIND the cube: clearly blue and bright
+LOOSE = ((90, 70, 60), (135, 255, 255))      # to KEEP tracking it: also shaded faces and highlights
+MIN_AREA = 150             # smallest patch to find the cube (pixels)
+MIN_SOLIDITY = 0.75        # cube must be a solid patch (rejects ragged shapes)
+MIN_FILL = 0.45            # cube must fill at least this much of its box
+MAX_ASPECT = 2.5           # cube may not be long and thin
+HOLD_FRAMES = 8            # keep the last position through this many missed pictures (~0.5 s)
+SMOOTH = 0.5               # 1 = jump to each new position, lower = smoother
+FIND_FRAMES = 3            # fresh sightings needed before the cube counts as found
+# ---------------- wheels (full mode only) ----------------
+TURN_RATE = 0.25
 TURN_SIGN = 1              # reversed automatically if the robot turns away from the cube
-DRIVE_SPEED = 45.0         # mm/s while the cube is far
+DRIVE_SPEED = 45.0         # mm/s while far
 CREEP_SPEED = 30.0         # mm/s when close
-CENTRE_BAND = 0.15         # how centred the cube must be before driving (fraction of half width)
-NEAR_STOP = 0.82           # stop driving when the cube's centre is this low in the picture
-SEARCH_TIME = 60           # seconds of turning before giving up
-NUDGE_TIME = 1.2           # seconds of creeping when the arm cannot reach
+CENTRE_BAND = 0.15
+NEAR_STOP = 0.82           # stop driving when the cube is this low in the picture
+SEARCH_TIME = 60
+NUDGE_TIME = 1.2
 # ---------------- arm ----------------
 CENTRE_X, CENTRE_Y = 320, 410   # where the cube appears when the gripper is right above it
 HOVER_Z, GRAB_Z = 0.03, -0.08   # gripper height while tracking / when grabbing (metres)
@@ -41,14 +49,13 @@ STABLE_FRAMES = 10
 SLOW = 2.0                 # 1 = fast, 2 = half speed
 TRACK_MS = 120
 MAX_TRIES = 8
-ARM_ONLY = len(sys.argv) > 1 and sys.argv[1] == 'arm'   # 'python3 fetch_blue.py arm': the wheels never move
 POSE_FILE = os.path.expanduser('~/cleanup_poses.json')
 SCAN = [(500, 0.15), (400, 0.15), (600, 0.15), (500, 0.22), (400, 0.22), (600, 0.22)]
-# ---------------------------------------
+# -------------------------------------
 
 ik = ik_transform.ArmIK()
 lock = threading.Lock()
-latest = {'seq': 0, 'blobs': [], 'size': (640, 480)}
+latest = {'seq': 0, 'strict': [], 'loose': [], 'size': (640, 480)}
 status = 'starting'
 last_proc = 0.0
 poses = {}
@@ -60,27 +67,32 @@ def clamp(v, lo, hi):
 
 
 # ---------------- vision ----------------
-def detect(img):
-    hsv = cv2.cvtColor(cv2.GaussianBlur(img, (5, 5), 0), cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, np.array(BLUE[0]), np.array(BLUE[1]))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
-    blobs = []
+def blobs_in(hsv, rng, min_area, shape_check):
+    mask = cv2.inRange(hsv, np.array(rng[0]), np.array(rng[1]))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))   # join pieces split by highlights
+    out = []
     for c in cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]:
         a = cv2.contourArea(c)
-        if a < MIN_AREA:
+        if a < min_area:
             continue
         x, y, bw, bh = cv2.boundingRect(c)
-        hull_area = cv2.contourArea(cv2.convexHull(c))
-        solidity = a / hull_area if hull_area > 0 else 0
-        fill = a / float(bw * bh)
         aspect = max(bw, bh) / float(max(1, min(bw, bh)))
-        if solidity < MIN_SOLIDITY or fill < MIN_FILL or aspect > MAX_ASPECT:
+        if shape_check:
+            hull = cv2.contourArea(cv2.convexHull(c))
+            if (a / hull if hull > 0 else 0) < MIN_SOLIDITY or a / float(bw * bh) < MIN_FILL or aspect > MAX_ASPECT:
+                continue
+        elif aspect > 4:
             continue
         m = cv2.moments(c)
-        blobs.append((int(m['m10'] / m['m00']), int(m['m01'] / m['m00']), a, (x, y, bw, bh)))
-    blobs.sort(key=lambda b: -b[2])
-    return blobs
+        out.append((m['m10'] / m['m00'], m['m01'] / m['m00'], a, (x, y, bw, bh)))
+    out.sort(key=lambda b: -b[2])
+    return out
+
+
+def detect(img):
+    hsv = cv2.cvtColor(cv2.GaussianBlur(img, (5, 5), 0), cv2.COLOR_BGR2HSV)
+    return blobs_in(hsv, STRICT, MIN_AREA, True), blobs_in(hsv, LOOSE, MIN_AREA // 2, False)
 
 
 def on_image(msg):
@@ -92,15 +104,16 @@ def on_image(msg):
     if img is None:
         return
     h, w = img.shape[:2]
-    blobs = detect(img)
+    strict, loose = detect(img)
     with lock:
         latest['seq'] += 1
-        latest['blobs'] = blobs
-        latest['size'] = (w, h)
-    for i, (cx, cy, a, (x, y, bw, bh)) in enumerate(blobs):
+        latest['strict'], latest['loose'], latest['size'] = strict, loose, (w, h)
+    for (cx, cy, a, (x, y, bw, bh)) in loose:
+        cv2.rectangle(img, (x, y), (x + bw, y + bh), (255, 160, 0), 1)
+    for i, (cx, cy, a, (x, y, bw, bh)) in enumerate(strict):
         cv2.rectangle(img, (x, y), (x + bw, y + bh), (255, 0, 0), 3 if i == 0 else 1)
-        if i == 0:
-            cv2.putText(img, 'blue cube', (x, max(15, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+    if not ARM_ONLY or MODE == 'arm':
+        cv2.drawMarker(img, (CENTRE_X, CENTRE_Y), (0, 255, 0), cv2.MARKER_CROSS, 24, 2)
     cv2.putText(img, status, (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
     out = Image()
     out.header = msg.header
@@ -114,30 +127,55 @@ def next_frame(last_seq, timeout=1.0):
     while not rospy.is_shutdown() and time.time() - t0 < timeout:
         with lock:
             if latest['seq'] != last_seq:
-                return latest['seq'], list(latest['blobs']), latest['size']
+                return latest['seq'], list(latest['strict']), list(latest['loose']), latest['size']
         time.sleep(0.01)
     with lock:
-        return latest['seq'], [], latest['size']
+        return latest['seq'], [], [], latest['size']
 
 
-def follow(prev, blobs):
-    """Keep following the same cube: the blob nearest its last position (or the biggest at first)."""
-    if not blobs:
-        return None
-    if prev is None:
-        return blobs[0]
-    near = [b for b in blobs if (b[0] - prev[0]) ** 2 + (b[1] - prev[1]) ** 2 < JUMP ** 2]
-    return min(near, key=lambda b: (b[0] - prev[0]) ** 2 + (b[1] - prev[1]) ** 2) if near else None
+class Tracker(object):
+    """Follows one cube from picture to picture.
+    Finds it with the strict colour + shape test, then keeps it with the looser colour test
+    near its last position, smooths the position, and rides through short dropouts."""
+
+    def __init__(self):
+        self.pos, self.missed, self.fresh = None, 0, 0
+
+    def update(self, strict, loose):
+        cand = None
+        if self.pos is None:
+            cand = strict[0] if strict else None
+        else:
+            near = [b for b in strict + loose
+                    if (b[0] - self.pos[0]) ** 2 + (b[1] - self.pos[1]) ** 2 < JUMP ** 2]
+            if near:
+                cand = min(near, key=lambda b: (b[0] - self.pos[0]) ** 2 + (b[1] - self.pos[1]) ** 2)
+        if cand:
+            if self.pos is None:
+                self.pos = (cand[0], cand[1])
+            else:
+                self.pos = (self.pos[0] + SMOOTH * (cand[0] - self.pos[0]),
+                            self.pos[1] + SMOOTH * (cand[1] - self.pos[1]))
+            self.missed = 0
+            self.fresh += 1
+            return self.pos, True
+        if self.pos is not None:
+            self.missed += 1
+            if self.missed <= HOLD_FRAMES:
+                return self.pos, False          # briefly not seen: keep the last position
+        self.pos, self.fresh = None, 0
+        return None, False
 
 
-def visible(n=3):
-    """True if a cube is seen in n pictures in a row."""
-    seq = latest['seq']
-    for _ in range(n):
-        seq, blobs, _ = next_frame(seq)
-        if not blobs:
-            return None
-    return blobs[0]
+def visible(frames=8):
+    """Watch a few pictures; return the cube position if it was seen reliably."""
+    tr, seq = Tracker(), latest['seq']
+    for _ in range(frames):
+        seq, strict, loose, _ = next_frame(seq)
+        pos, fresh = tr.update(strict, loose)
+        if tr.fresh >= FIND_FRAMES and pos:
+            return pos
+    return None
 
 
 # ---------------- motion ----------------
@@ -153,7 +191,7 @@ def pause(sec):
 
 def drive(vel, direction, angular):
     if ARM_ONLY and (vel or angular):
-        return                               # arm-only mode: never move the wheels
+        return                                  # never move the wheels in arm / look mode
     chassis_pub.publish(float(vel), float(direction), float(angular))
 
 
@@ -175,39 +213,35 @@ def ik_move(reach, z, base, ms, extra=()):
 
 
 def arm_look():
-    """Arm raised, camera looking ahead across the floor (the taught LOOK pose)."""
     lp = poses['look']
     servos(1500, ((1, GRIP_OPEN), (2, lp[2]), (3, lp[3]), (4, lp[4]), (5, lp[5]), (6, lp[6])))
     pause(1.6)
 
 
 def arm_down():
-    """Gripper pointing down, camera looking at the floor just in front of the robot."""
     ik_move(0.15, HOVER_Z, 500, 1500, extra=((1, GRIP_OPEN), (2, 500)))
     pause(1.6)
 
 
 def nudge(direction):
-    """Creep forward (90) or backward (270) a little, with the arm still."""
     drive(CREEP_SPEED, direction, 0)
     time.sleep(NUDGE_TIME)
     stop()
     time.sleep(0.5)
 
 
-# ---------------- 1. find and drive (wheels) ----------------
+# ---------------- 1. find and drive (full mode) ----------------
 def search():
     say('Searching: turning to find the blue cube')
-    seq, seen, t0 = latest['seq'], 0, time.time()
+    tr, seq, t0 = Tracker(), latest['seq'], time.time()
     while not rospy.is_shutdown() and time.time() - t0 < SEARCH_TIME:
-        seq, blobs, _ = next_frame(seq)
-        if blobs:
+        seq, strict, loose, _ = next_frame(seq)
+        pos, fresh = tr.update(strict, loose)
+        if pos:
             stop()
-            seen += 1
-            if seen >= CONFIRM:
+            if tr.fresh >= FIND_FRAMES:
                 return True
         else:
-            seen = 0
             drive(0, 90, TURN_SIGN * TURN_RATE)
     stop()
     return False
@@ -216,41 +250,37 @@ def search():
 def approach():
     global TURN_SIGN
     say('Driving to the cube')
-    seq, prev = latest['seq'], None
-    t_lost = t_check = time.time()
-    last_err = None
-    t0 = time.time()
+    tr, seq = Tracker(), latest['seq']
+    t_check, last_err, t0 = time.time(), None, time.time()
     while not rospy.is_shutdown() and time.time() - t0 < 90:
-        seq, blobs, (w, h) = next_frame(seq)
-        cube = follow(prev, blobs)
-        if cube is None:
+        seq, strict, loose, (w, h) = next_frame(seq)
+        pos, fresh = tr.update(strict, loose)
+        if pos is None:
             stop()
-            if time.time() - t_lost > 2.0:
-                say('Lost the cube while driving')
-                return False
+            say('Lost the cube while driving')
+            return False
+        if not fresh:
+            stop()                              # briefly not seen: wait instead of guessing
             continue
-        t_lost = time.time()
-        prev = (cube[0], cube[1])
-        ex = (cube[0] - w / 2.0) / (w / 2.0)
-        if cube[1] >= NEAR_STOP * h and abs(ex) < CENTRE_BAND:
+        ex = (pos[0] - w / 2.0) / (w / 2.0)
+        if pos[1] >= NEAR_STOP * h and abs(ex) < CENTRE_BAND:
             stop()
             return True
         if abs(ex) > CENTRE_BAND:
             drive(0, 90, -TURN_SIGN * TURN_RATE * (1 if ex > 0 else -1))
-            if time.time() - t_check > 0.8:            # turning the wrong way? reverse
+            if time.time() - t_check > 0.8:
                 if last_err is not None and abs(ex) > last_err + 0.08:
                     TURN_SIGN = -TURN_SIGN
                     print('  turning the other way')
                 last_err, t_check = abs(ex), time.time()
         else:
             last_err = None
-            speed = DRIVE_SPEED if cube[1] < 0.6 * h else CREEP_SPEED
-            drive(speed, 90, -TURN_SIGN * TURN_RATE * 0.5 * ex)
+            drive(DRIVE_SPEED if pos[1] < 0.6 * h else CREEP_SPEED, 90, -TURN_SIGN * TURN_RATE * 0.5 * ex)
     stop()
     return False
 
 
-# ---------------- 2. line the gripper up (arm, inverse kinematics) ----------------
+# ---------------- 2. line the gripper up (inverse kinematics) ----------------
 def arm_find():
     arm_down()
     if visible():
@@ -265,22 +295,18 @@ def arm_find():
 
 
 def track(base, reach):
-    """Move the gripper over the cube with IK. Returns ('ok', (base, reach, pitch)) or 'far' / 'near' / 'lost'."""
     say('Lining the gripper up over the cube')
     x_dis, y_dis = float(base), float(reach)
-    seq, prev, stable, far, near = latest['seq'], None, 0, 0, 0
-    t_lost = t0 = shown = time.time()
+    tr, seq = Tracker(), latest['seq']
+    stable, far, near, t0, shown = 0, 0, 0, time.time(), 0.0
     while not rospy.is_shutdown() and time.time() - t0 < 40:
-        seq, blobs, _ = next_frame(seq)
-        cube = follow(prev, blobs)
-        if cube is None:
-            stable = 0
-            if time.time() - t_lost > 3:
-                return 'lost', None
-            continue
-        t_lost = time.time()
-        cx, cy = cube[0], cube[1]
-        prev = (cx, cy)
+        seq, strict, loose, _ = next_frame(seq)
+        pos, fresh = tr.update(strict, loose)
+        if pos is None:
+            return 'lost', None
+        if not fresh:
+            continue                            # briefly not seen: hold still, keep the count
+        cx, cy = pos
         dx = X_GAIN * (CENTRE_X - cx) if abs(cx - CENTRE_X) >= DEADBAND else 0.0
         dy = Y_GAIN * (CENTRE_Y - cy) if abs(cy - CENTRE_Y) >= DEADBAND else 0.0
         x_dis = clamp(x_dis + dx, 200, 800)
@@ -306,7 +332,6 @@ def track(base, reach):
 
 
 def line_up():
-    """Arm-only line-up, creeping the wheels a little if the cube is out of the arm's reach."""
     for adjust in range(4):
         found = arm_find()
         if not found:
@@ -368,8 +393,28 @@ def place_left():
 def still_there(base, reach):
     ik_move(reach, HOVER_Z, base, 1500)
     pause(1.8)
-    cube = visible()
-    return bool(cube and abs(cube[0] - CENTRE_X) < 80 and abs(cube[1] - CENTRE_Y) < 80)
+    pos = visible()
+    return bool(pos and abs(pos[0] - CENTRE_X) < 80 and abs(pos[1] - CENTRE_Y) < 80)
+
+
+# ---------------- detection test ----------------
+def look_test():
+    say('Detection test - nothing moves. Ctrl+C to stop.')
+    tr, seq = Tracker(), latest['seq']
+    seen = held = total = 0
+    t_print = time.time()
+    while not rospy.is_shutdown():
+        seq, strict, loose, _ = next_frame(seq)
+        pos, fresh = tr.update(strict, loose)
+        total += 1
+        seen += 1 if fresh else 0
+        held += 1 if (pos and not fresh) else 0
+        if time.time() - t_print > 1.0:
+            where = 'at (%d, %d)' % pos if pos else 'not tracked'
+            print('  seen in %d of %d pictures, held %d, cube %s, strict %d / loose %d patches'
+                  % (seen, total, held, where, len(strict), len(loose)))
+            seen = held = total = 0
+            t_print = time.time()
 
 
 def main():
@@ -388,15 +433,18 @@ def main():
                     poses[k] = dict((int(i), int(p)) for i, p in v.items())
     except (IOError, OSError, ValueError):
         pass
-    if 'look' not in poses or 'drop' not in poses:
-        print('Teach the LOOK (key 1) and DROP (key 4) poses first: python3 ~/cleanup.py teach')
-        return
     rospy.Subscriber('/usb_cam/image_raw/compressed', CompressedImage, on_image, queue_size=1, buff_size=2 ** 24)
     rospy.sleep(1.0)
     if latest['seq'] == 0:
         print('No camera pictures - is the camera running?')
         return
     print('Camera view: http://ubuntu.local:8080/stream_viewer?topic=/cleanup/image')
+    if MODE == 'look':
+        look_test()
+        return
+    if 'look' not in poses or 'drop' not in poses:
+        print('Teach the LOOK (key 1) and DROP (key 4) poses first: python3 ~/cleanup.py teach')
+        return
     if ARM_ONLY:
         print('Arm only: the wheels will not move. Put the cube 12-25 cm in front. Ctrl+C stops.')
     else:
