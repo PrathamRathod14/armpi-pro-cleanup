@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Clean-up Robot Plan</title>
+<title>Blue Cube Fetch</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -200,16 +200,16 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 <!-- ============ HERO ============ -->
 <section class="hero">
   <div class="hero-text">
-    <span class="eyebrow">ArmPi Pro · clean-up project</span>
-    <h1>Pick up what is on the floor, put it on the left</h1>
-    <p class="lede">A Hiwonder ArmPi Pro finds the red container, the yellow container and the pink highlighter, drives to each one, picks it up and sets it down to its own left. It does this with one camera on its arm and nothing else.</p>
+    <span class="eyebrow">ArmPi Pro · blue cube fetch</span>
+    <h1>Find the blue cube, pick it up, put it on the left</h1>
+    <p class="lede">A Hiwonder ArmPi Pro looks around until its arm camera sees the blue cube, drives to it, picks it up and sets it down to its own left. Other cubes on the table are ignored: the robot steers only by where blue appears in the camera picture.</p>
   </div>
 
   <div class="fig">
     <div class="scene-wrap">
-      <div class="scene" aria-label="Animated top-down view of the robot collecting three objects">
+      <div class="scene" aria-label="Animated top-down view of the robot finding and fetching the blue cube">
         <svg id="world" viewBox="0 0 900 360" role="img" aria-labelledby="worldTitle">
-          <title id="worldTitle">Top-down floor: robot and three objects</title>
+          <title id="worldTitle">Top-down floor: robot, blue cube and two ignored cubes</title>
           <g id="dyn"></g>
           <line x1="24" y1="340" x2="49" y2="340" stroke="var(--muted)" stroke-width="2"/>
           <text x="56" y="344" class="t">10 cm</text>
@@ -221,15 +221,15 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <p id="reason" class="reason"></p>
         <div class="cam" aria-label="Simulated camera picture"><svg id="cam" viewBox="0 0 160 120"></svg></div>
         <div class="kv">
-          <span>Target</span><b id="kvTarget">–</b>
-          <span>Distance to target</span><b id="kvDist">–</b>
+          <span>Tracking</span><b id="kvTarget">–</b>
+          <span>Distance to cube</span><b id="kvDist">–</b>
           <span>Gripper</span><b id="kvGrip">–</b>
-          <span>Moved</span><b id="kvCount">–</b>
+          <span>Ignored in view</span><b id="kvIgnored">–</b>
         </div>
         <div class="legend">
-          <span><i class="dot" style="background:var(--robot)"></i>camera looking ahead</span>
-          <span><i class="dot" style="background:var(--scan)"></i>camera looking down</span>
-          <span><i class="dot" style="background:var(--ok)"></i>moved</span>
+          <span><i class="dot" style="background:var(--robot)"></i>camera view</span>
+          <span><i class="dot" style="background:var(--ok)"></i>taught spot</span>
+          <span><i class="dot" style="background:var(--muted)"></i>not blue: ignored</span>
         </div>
       </aside>
     </div>
@@ -239,7 +239,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <span id="clock" class="time">0 s</span>
     </div>
   </div>
-  <p class="caption">Illustration of the program's logic, simulated in the page and played at 4× speed. It is not recorded robot data. Here the robot ignores objects it has already moved; the real robot cannot yet tell them apart (task 8).</p>
+  <p class="caption">Illustration of the <span class="mono">fetch</span> mode's logic, simulated in the page and played at 4× speed. It is not recorded robot data; <span class="mono">fetch</span> has not yet run on the robot.</p>
 </section>
 
 <!-- ============ WHY HARD ============ -->
@@ -255,36 +255,34 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <circle cx="34" cy="100" r="7" class="s-ink"/><circle cx="74" cy="100" r="7" class="s-ink"/>
         <path d="M54 74 L70 40 L104 34" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/>
         <path d="M104 34 L218 12 L218 78 Z" fill="var(--robot)" fill-opacity=".14" stroke="var(--robot)" stroke-opacity=".6"/>
-        <path d="M104 34 L96 108 L140 108 Z" fill="var(--scan)" fill-opacity=".14" stroke="var(--scan)" stroke-opacity=".6" stroke-dasharray="4 3"/>
-        <text x="168" y="98" class="t">look</text>
-        <text x="146" y="118" class="t">or down</text>
+        <text x="150" y="98" class="t">camera on the arm</text>
       </svg>
-      <h3>One camera, two jobs</h3>
-      <p>The only camera sits on the arm. Raised, it looks ahead to find objects; lowered, it looks at the gripper to line up. It can never do both at once.</p>
+      <h3>One camera, on the arm</h3>
+      <p>The only camera moves with the arm. The arm stays raised while the robot searches and drives, so the camera looks ahead. It only comes down to grab once the robot has stopped.</p>
     </article>
     <article class="tile">
       <svg viewBox="0 0 240 120" aria-hidden="true">
         <rect x="40" y="8" width="160" height="104" rx="6" fill="var(--paper)" stroke="var(--line)"/>
-        <rect x="140" y="28" width="10" height="10" rx="2" fill="#e2c400"/>
-        <rect x="84" y="66" width="30" height="30" rx="6" fill="#d7343c"/>
-        <line x1="40" y1="89" x2="200" y2="89" stroke="var(--muted)" stroke-dasharray="4 3"/>
+        <rect x="140" y="28" width="10" height="10" rx="2" fill="#2f7fd8"/>
+        <rect x="84" y="62" width="30" height="30" rx="6" fill="#2f7fd8"/>
+        <path d="M120 94 h16 M128 86 v16" stroke="var(--ok)" stroke-width="2"/>
         <text x="156" y="36" class="t">far</text>
-        <text x="120" y="78" class="t">near</text>
+        <text x="140" y="106" class="t">spot</text>
       </svg>
       <h3>No distance sensor</h3>
-      <p>Nothing measures how far away an object is. The robot reads it from the picture: a near object looks bigger and sits lower in the frame.</p>
+      <p>Nothing measures distance. The robot reads it from the picture: a near cube looks bigger and sits lower. It stops when the cube reaches the spot recorded during calibration.</p>
     </article>
     <article class="tile">
       <svg viewBox="0 0 240 120" aria-hidden="true">
-        <rect x="120" y="48" width="54" height="44" rx="6" class="s-robot"/>
-        <rect x="134" y="14" width="16" height="16" rx="4" fill="#d7343c"/>
-        <circle cx="142" cy="22" r="14" fill="none" stroke="var(--ok)" stroke-width="2"/>
-        <rect x="60" y="62" width="16" height="16" rx="4" fill="#e2c400"/>
-        <text x="96" y="74" class="t-ink">?</text>
-        <text x="120" y="112" class="t">moved, or new?</text>
+        <rect x="120" y="54" width="54" height="44" rx="6" class="s-robot"/>
+        <rect x="140" y="14" width="18" height="18" rx="4" fill="#2f7fd8"/>
+        <circle cx="149" cy="23" r="15" fill="none" stroke="var(--robot)" stroke-width="2"/>
+        <rect x="56" y="30" width="18" height="18" rx="4" fill="#d7343c" fill-opacity=".55"/>
+        <rect x="82" y="74" width="18" height="18" rx="4" fill="#c9a77c" fill-opacity=".55"/>
+        <text x="40" y="112" class="t">red, wood: ignored</text>
       </svg>
-      <h3>Moved objects stay in view</h3>
-      <p>Without a box, a placed object is still on the floor and still red. To the camera it looks exactly like one that has not been picked up yet.</p>
+      <h3>Other cubes in view</h3>
+      <p>The red and wooden cubes look just as cube-like. Only the colour tells them apart, so detection keeps blue pixels and throws everything else away.</p>
     </article>
   </div>
 </section>
@@ -300,9 +298,9 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
           <marker id="arrM" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-muted"/></marker>
         </defs>
         <path d="M210 210 L135 80 A150 150 0 0 1 285 80 Z" fill="var(--robot)" fill-opacity=".12" stroke="var(--robot)" stroke-opacity=".6"/>
-        <rect x="190" y="146" width="40" height="30" rx="4" fill="var(--scan)" fill-opacity=".18" stroke="var(--scan)"/>
+        <path d="M200 160 h20 M210 150 v20" stroke="var(--ok)" stroke-width="2.5"/>
         <path d="M210 162 A48 48 0 0 0 162 210" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrM)"/>
-        <rect x="140" y="200" width="18" height="18" rx="4" fill="#d7343c"/>
+        <rect x="140" y="200" width="18" height="18" rx="4" fill="#2f7fd8"/>
         <rect x="180" y="182" width="60" height="56" rx="8" class="s-robot"/>
         <rect x="174" y="188" width="6" height="14" rx="2" class="s-ink"/><rect x="240" y="188" width="6" height="14" rx="2" class="s-ink"/>
         <rect x="174" y="218" width="6" height="14" rx="2" class="s-ink"/><rect x="240" y="218" width="6" height="14" rx="2" class="s-ink"/>
@@ -310,8 +308,8 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <line x1="210" y1="250" x2="210" y2="284" stroke="var(--leader)" stroke-width="3" stroke-linecap="round" marker-end="url(#arrL)"/>
         <path d="M246 252 A26 26 0 0 0 262 236" fill="none" stroke="var(--leader)" stroke-width="3" stroke-linecap="round" marker-end="url(#arrL)"/>
         <text x="210" y="24" class="t-ink" text-anchor="middle">arm raised: looks ahead, about 1 m</text>
-        <text x="240" y="160" class="t">arm down</text>
-        <text x="100" y="196" class="t">drop spot</text>
+        <text x="226" y="150" class="t">grab spot</text>
+        <text x="96" y="196" class="t">placed here</text>
         <text x="300" y="214" class="t">sideways</text>
         <text x="218" y="300" class="t">any direction, turns on the spot</text>
       </svg>
@@ -320,12 +318,12 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <span class="eyebrow">What the robot has</span>
       <h2>A camera that moves with the arm, and wheels that move any way</h2>
       <div class="sense-list">
-        <div class="sense"><i style="background:var(--robot)"></i><div><h3>One USB colour camera, on the arm</h3><p>Points wherever the arm points. It sees colours well, but has no depth, so all distance comes from the picture.</p></div></div>
-        <div class="sense"><i style="background:var(--scan)"></i><div><h3>Six bus servos with position feedback</h3><p>Base, shoulder, elbow, wrist, wrist turn and gripper. Each reports where it is, so arm positions can be taught by hand and replayed exactly.</p></div></div>
-        <div class="sense"><i style="background:var(--leader)"></i><div><h3>Mecanum wheels</h3><p>Forward, backward, sideways and turning on the spot. Sideways moves make the final line-up possible without turning.</p></div></div>
-        <div class="sense"><i style="background:var(--muted)"></i><div><h3>Raspberry Pi 4 with ROS Melodic</h3><p>Runs the camera, the servos and the program. Also reads the battery voltage. No lidar, no distance sensor, no motion sensor.</p></div></div>
+        <div class="sense"><i style="background:var(--robot)"></i><div><h3>One USB colour camera, on the arm</h3><p>Sees colours well but has no depth, so distance comes from the picture. It has crashed when its cable was pulled by arm moves, so the cable needs slack.</p></div></div>
+        <div class="sense"><i style="background:var(--scan)"></i><div><h3>Six bus servos with position feedback</h3><p>Base, shoulder, elbow, wrist, wrist turn and gripper. Arm positions are taught by hand and replayed. On this robot a low gripper value means open.</p></div></div>
+        <div class="sense"><i style="background:var(--leader)"></i><div><h3>Mecanum wheels</h3><p>Forward, backward, sideways and turning on the spot. Sideways slides do the final line-up without turning.</p></div></div>
+        <div class="sense"><i style="background:var(--muted)"></i><div><h3>Raspberry Pi 4 with ROS Melodic</h3><p>Runs the camera, servos and program. Big shoulder moves on a weak battery have cut its power, so moves are slow and the charger stays connected.</p></div></div>
       </div>
-      <p class="callout">So the plan uses the arm twice: raised to find and drive to an object, lowered to line it up between the fingers. Arm positions are taught once by hand instead of calculated.</p>
+      <p class="callout">The arm stays in the raised Look pose for everything except the grab itself. The robot drives until the cube sits on the spot calibrated once by hand, then replays the taught grab.</p>
     </div>
   </div>
 </section>
@@ -334,16 +332,16 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 <section>
   <div class="section-head">
     <span class="eyebrow">How it works</span>
-    <h2>Six steps for each object</h2>
-    <p class="lede">All six are written in <span class="mono">cleanup.py</span> on the robot. Only the first has been seen working; the rest have never run on their own.</p>
+    <h2>Six steps, from seeing blue to letting go</h2>
+    <p class="lede">All six are in <span class="mono">cleanup.py</span>, run by <span class="mono">python3 ~/cleanup.py fetch</span>. Detection and the arm moves have been seen on the robot; the driving steps have not run yet.</p>
   </div>
   <div class="pipe">
-    <article class="stage" tabindex="0"><span class="n">SEE</span><h3>Find colours</h3><p>Each picture is split into red, pink and yellow areas. Tiny specks are dropped; each patch gives a position and a size.</p><span class="pill built">seen working</span></article>
-    <article class="stage" tabindex="0"><span class="n">SEARCH</span><h3>Turn and look</h3><p>Arm raised. The robot turns on the spot until a patch shows up in three pictures in a row.</p><span class="pill untested">written, untested</span></article>
-    <article class="stage" tabindex="0"><span class="n">APPROACH</span><h3>Drive to it</h3><p>Turn until the patch is centred, then drive. Stop when its lower edge reaches 78% of the picture height.</p><span class="pill untested">written, untested</span></article>
-    <article class="stage" tabindex="0"><span class="n">LINE UP</span><h3>Onto the cross</h3><p>Arm down. Slide in small steps until the object sits on the taught grab spot, within 18 pixels.</p><span class="pill untested">written, untested</span></article>
-    <article class="stage" tabindex="0"><span class="n">PICK</span><h3>Grab and lift</h3><p>Lower to the taught grip height, close to the taught width, lift. The wheels stay still.</p><span class="pill untested">written, untested</span></article>
-    <article class="stage" tabindex="0"><span class="n">PLACE</span><h3>Set down on the left</h3><p>Swing the arm left, lower to the floor, open, lift. Then search for the next object.</p><span class="pill next">patch ready</span></article>
+    <article class="stage" tabindex="0"><span class="n">SEE</span><h3>Keep only blue</h3><p>Each picture is converted to hue, saturation and brightness. Pixels in the blue range are kept, specks are removed, and the biggest patch gives the cube's position and size.</p><span class="pill built">seen working</span></article>
+    <article class="stage" tabindex="0"><span class="n">SEARCH</span><h3>Turn and look</h3><p>Arm raised. The robot turns on the spot until blue appears in three pictures in a row. Gives up after 45 seconds.</p><span class="pill untested">written, untested</span></article>
+    <article class="stage" tabindex="0"><span class="n">APPROACH</span><h3>Face it, drive</h3><p>While the cube is far, turn until it is centred, then drive forward with small corrections.</p><span class="pill untested">written, untested</span></article>
+    <article class="stage" tabindex="0"><span class="n">SLIDE IN</span><h3>Onto the spot</h3><p>When close, slide sideways and forward until the cube sits within 20 pixels of the calibrated spot.</p><span class="pill untested">written, untested</span></article>
+    <article class="stage" tabindex="0"><span class="n">PICK</span><h3>Grab and lift</h3><p>Lower to the taught grip position with the gripper open, close on the cube, lift. The wheels stay still.</p><span class="pill next">arm test runs</span></article>
+    <article class="stage" tabindex="0"><span class="n">PLACE</span><h3>Set down on the left</h3><p>Swing the arm base left, lower to the floor, open, lift back to the raised pose. Done.</p><span class="pill next">arm test runs</span></article>
   </div>
 </section>
 
@@ -356,7 +354,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="idgrid">
     <div class="fig">
       <svg class="fsm" viewBox="0 0 560 300" role="img" aria-labelledby="fsmT">
-        <title id="fsmT">The six program states and how the robot moves between them</title>
+        <title id="fsmT">The fetch states and how the robot moves between them</title>
         <defs>
           <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="s-muted"/></marker>
         </defs>
@@ -365,24 +363,22 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
           <path d="M345 83 H406"/>
           <path d="M475 106 V226"/>
           <path d="M410 253 H349"/>
-          <path d="M240 230 C 220 180, 140 170, 110 110"/>
           <path d="M45 106 V226"/>
           <path d="M215 253 H154"/>
           <path d="M265 60 C 245 34, 140 34, 120 58"/>
           <path d="M445 60 C 420 4, 110 4, 75 58"/>
         </g>
-        <text x="156" y="76" class="t">seen</text>
+        <text x="152" y="76" class="t">blue seen</text>
         <text x="352" y="76" class="t">close</text>
-        <text x="482" y="170" class="t">on the cross</text>
+        <text x="482" y="170" class="t">on the spot</text>
         <text x="362" y="246" class="t">held</text>
-        <text x="176" y="196" class="t">next object</text>
-        <text x="52" y="150" class="t">45 s, nothing</text>
-        <text x="158" y="246" class="t">3 moved</text>
-        <text x="168" y="50" class="t">lost 2 s</text>
-        <text x="232" y="16" class="t">not lined up in 25 s</text>
+        <text x="52" y="150" class="t">45 s, no blue</text>
+        <text x="160" y="246" class="t">placed</text>
+        <text x="160" y="50" class="t">lost 2 s</text>
+        <text x="250" y="16" class="t">lost 2 s</text>
         <g class="st" data-s="SEARCH" tabindex="0"><rect x="20" y="60" width="130" height="46" rx="10" fill="var(--panel)" stroke="var(--wait)" stroke-width="1.5"/><text x="85" y="88" text-anchor="middle" class="t-ink" style="fill:var(--wait)">SEARCH</text></g>
         <g class="st" data-s="APPROACH" tabindex="0"><rect x="215" y="60" width="130" height="46" rx="10" fill="var(--panel)" stroke="var(--robot)" stroke-width="1.5"/><text x="280" y="88" text-anchor="middle" class="t-ink" style="fill:var(--robot)">APPROACH</text></g>
-        <g class="st" data-s="LINE_UP" tabindex="0"><rect x="410" y="60" width="130" height="46" rx="10" fill="var(--panel)" stroke="var(--scan)" stroke-width="1.5"/><text x="475" y="88" text-anchor="middle" class="t-ink" style="fill:var(--scan)">LINE UP</text></g>
+        <g class="st" data-s="LINE_UP" tabindex="0"><rect x="410" y="60" width="130" height="46" rx="10" fill="var(--panel)" stroke="var(--scan)" stroke-width="1.5"/><text x="475" y="88" text-anchor="middle" class="t-ink" style="fill:var(--scan)">SLIDE IN</text></g>
         <g class="st" data-s="PICK" tabindex="0"><rect x="410" y="230" width="130" height="46" rx="10" fill="var(--panel)" stroke="var(--leader)" stroke-width="1.5"/><text x="475" y="258" text-anchor="middle" class="t-ink" style="fill:var(--leader)">PICK</text></g>
         <g class="st" data-s="PLACE" tabindex="0"><rect x="215" y="230" width="130" height="46" rx="10" fill="var(--panel)" stroke="var(--leader)" stroke-width="1.5"/><text x="280" y="258" text-anchor="middle" class="t-ink" style="fill:var(--leader)">PLACE</text></g>
         <g class="st" data-s="DONE" tabindex="0"><rect x="20" y="230" width="130" height="46" rx="10" fill="var(--panel)" stroke="var(--ok)" stroke-width="1.5"/><text x="85" y="258" text-anchor="middle" class="t-ink" style="fill:var(--ok)">FINISHED</text></g>
@@ -391,26 +387,29 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     </div>
     <div class="stack">
       <p class="rule">The wheels and the arm never move at the same time.</p>
-      <p>The robot always stops driving before the arm moves, and the arm finishes before the wheels move again. That makes every step easy to watch and easy to stop with Ctrl+C, and a swinging arm never meets a moving floor.</p>
-      <p class="callout">If the object leaves the picture for 2 seconds while driving, the robot stops and searches again. It never keeps driving toward where it thinks the object was.</p>
+      <p>The robot stops driving before the arm moves, and the arm finishes before the wheels move again. Every step is easy to watch and easy to stop with Ctrl+C, and a swinging arm never meets a moving floor.</p>
+      <p class="callout">If the blue cube leaves the picture for 2 seconds, the robot stops and searches again, up to three times. It never keeps driving toward where it thinks the cube was.</p>
       <div class="fig">
         <svg viewBox="0 0 420 270" role="img" aria-labelledby="picT">
-          <title id="picT">How the picture steers the robot</title>
+          <title id="picT">How the camera picture steers the robot</title>
           <rect x="50" y="16" width="320" height="240" rx="6" fill="var(--paper)" stroke="var(--line)"/>
           <rect x="178" y="16" width="64" height="240" fill="var(--robot)" fill-opacity=".08"/>
-          <line x1="50" y1="203" x2="370" y2="203" stroke="var(--muted)" stroke-dasharray="6 4"/>
-          <rect x="296" y="62" width="14" height="14" rx="3" fill="#e2c400"/>
-          <rect x="293" y="59" width="20" height="20" fill="none" stroke="#e2c400" stroke-width="1.5"/>
-          <path d="M290 69 H252" stroke="var(--robot)" stroke-width="2" marker-end="url(#arr)"/>
-          <rect x="194" y="172" width="32" height="32" rx="7" fill="#d7343c"/>
-          <rect x="190" y="168" width="40" height="40" fill="none" stroke="#d7343c" stroke-width="1.5"/>
+          <rect x="296" y="56" width="14" height="14" rx="3" fill="#2f7fd8"/>
+          <rect x="293" y="53" width="20" height="20" fill="none" stroke="#2f7fd8" stroke-width="1.5"/>
+          <path d="M290 63 H252" stroke="var(--robot)" stroke-width="2" marker-end="url(#arr)"/>
+          <rect x="96" y="64" width="16" height="16" rx="3" fill="#d7343c" fill-opacity=".6"/>
+          <path d="M196 206 h28 M210 192 v28" stroke="var(--ok)" stroke-width="2.5"/>
+          <rect x="238" y="178" width="30" height="30" rx="6" fill="#2f7fd8"/>
+          <rect x="234" y="174" width="38" height="38" fill="none" stroke="#2f7fd8" stroke-width="1.5"/>
+          <path d="M232 196 H226" stroke="var(--robot)" stroke-width="2" marker-end="url(#arr)"/>
           <text x="210" y="34" class="t" text-anchor="middle">centre band</text>
-          <text x="318" y="96" class="t" text-anchor="middle">far, off centre</text>
-          <text x="364" y="220" class="t" text-anchor="end">close enough line</text>
-          <text x="236" y="190" class="t">near, centred: stop</text>
+          <text x="318" y="90" class="t" text-anchor="middle">far: turn to face it</text>
+          <text x="104" y="98" class="t" text-anchor="middle">red: no box</text>
+          <text x="210" y="240" class="t" text-anchor="middle">taught spot</text>
+          <text x="280" y="170" class="t">near: slide onto it</text>
         </svg>
       </div>
-      <p class="caption">The camera picture in the raised pose. Off centre: turn toward it. In the band: drive forward. Lower edge on the dashed line: stop and look down.</p>
+      <p class="caption">The camera picture in the raised pose. Far and off centre: turn toward it. In the band: drive forward. Near: slide until the cube covers the green cross, then grab.</p>
     </div>
   </div>
 </section>
@@ -419,15 +418,15 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 <section>
   <div class="section-head">
     <span class="eyebrow">What you teach it</span>
-    <h2>Five values, shown once by hand</h2>
-    <p class="lede">In teach mode you move the robot with the keyboard and press a key to save. The program cannot work these out by itself. The status below is from the last teach session.</p>
+    <h2>Four arm positions and one spot, shown once</h2>
+    <p class="lede">Taught by hand with the keyboard in teach mode, plus one calibration step. Status as of the last teach session.</p>
   </div>
   <div class="teach">
-    <article class="tile"><div class="teach-top"><span class="key">1</span><span class="pill missing">missing</span></div><h3>Look pose</h3><p>Arm raised, camera seeing the floor from just ahead out to about a metre. Used for searching and driving.</p></article>
-    <article class="tile"><div class="teach-top"><span class="key">2</span><span class="pill built">saved</span></div><h3>Ready pose</h3><p>Arm down, gripper fully open, fingertips at the bottom of the picture. Used for lining up.</p></article>
-    <article class="tile"><div class="teach-top"><span class="key">c</span><span class="pill untested">redo</span></div><h3>Grab spot</h3><p>Where in the down-looking picture an object must sit to be gripped. Was saved with the highlighter; redo with the red container.</p></article>
-    <article class="tile"><div class="teach-top"><span class="key">3</span><span class="pill untested">redo</span></div><h3>Grip pose</h3><p>Grabbing height, and how far the gripper closes. Redo on the red container: firm, not crushing.</p></article>
-    <article class="tile"><div class="teach-top"><span class="key">4</span><span class="pill untested">redo</span></div><h3>Drop pose</h3><p>Was saved over the pen holder. Redo with the arm turned left and lowered until the object rests on the floor.</p></article>
+    <article class="tile"><div class="teach-top"><span class="key">1</span><span class="pill built">saved</span></div><h3>Look pose</h3><p>Arm raised, camera seeing the floor ahead. Used for searching, driving and the line-up.</p></article>
+    <article class="tile"><div class="teach-top"><span class="key">3</span><span class="pill built">saved</span></div><h3>Grip pose</h3><p>Grabbing height, and how far the gripper closes on the cube (448).</p></article>
+    <article class="tile"><div class="teach-top"><span class="key">4</span><span class="pill built">saved</span></div><h3>Drop pose</h3><p>Arm base turned left (84), lowered until the cube rests on the floor.</p></article>
+    <article class="tile"><div class="teach-top"><span class="key">2</span><span class="pill built">set</span></div><h3>Open value</h3><p>How wide the gripper opens before grabbing: 200, since low means open on this robot.</p></article>
+    <article class="tile"><div class="teach-top"><span class="key mono" style="width:auto;padding:0 6px">calib</span><span class="pill missing">to do</span></div><h3>Target spot</h3><p>Where the cube appears in the raised camera's picture when it sits exactly at the grabbing position.</p></article>
   </div>
 </section>
 
@@ -439,19 +438,18 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <p class="lede">Each rung adds one difficulty. When something fails, the rung it fails on says which part is at fault.</p>
   </div>
   <div class="scen">
-    <article class="tile"><h3>Placed by hand</h3><p>Object put on the grab spot by hand. Only the arm works: pick and place.</p></article>
-    <article class="tile"><h3>Straight ahead</h3><p>Object 50 cm in front. Drive, line up, stop. No grab.</p></article>
-    <article class="tile"><h3>Off to one side</h3><p>Same, with the object to the left or right. Tests turning.</p></article>
-    <article class="tile"><h3>Behind the robot</h3><p>The robot must search all the way round before it sees anything.</p></article>
-    <article class="tile"><h3>One object, full cycle</h3><p>Search, approach, line up, pick, place, with no help.</p></article>
-    <article class="tile"><h3>All three</h3><p>Red, yellow and pink spread 40–80 cm around the robot in one run.</p></article>
+    <article class="tile"><h3>Detection only</h3><p><span class="mono">detect_objects.py</span>: blue gets a rectangle and its position changes as the cube moves. Nothing moves.</p></article>
+    <article class="tile"><h3>Placed by hand</h3><p><span class="mono">pick</span>: cube put at the grab spot by hand; the arm grabs it and places it left.</p></article>
+    <article class="tile"><h3>Straight ahead</h3><p><span class="mono">fetch</span> with the cube 50 cm in front. Tests driving and stopping.</p></article>
+    <article class="tile"><h3>Off to one side</h3><p>Cube to the left or right. Tests turning and the sideways slide.</p></article>
+    <article class="tile"><h3>Behind the robot</h3><p>The robot must search all the way round before it sees blue.</p></article>
+    <article class="tile"><h3>With other cubes</h3><p>Red and wooden cubes nearby. The robot must go only for blue.</p></article>
   </div>
   <div class="metrics">
-    <span class="metric"><b>Success</b> runs where every object ended on the left</span>
-    <span class="metric"><b>Moved</b> objects placed per run</span>
+    <span class="metric"><b>Success</b> runs that end with the blue cube on the left</span>
+    <span class="metric"><b>Wrong cube</b> another cube approached or grabbed (goal: zero)</span>
     <span class="metric"><b>Missed grabs</b> gripper closed on nothing</span>
-    <span class="metric"><b>Re-picks</b> already-moved objects picked again</span>
-    <span class="metric"><b>Time</b> seconds per object</span>
+    <span class="metric"><b>Time</b> seconds from start to placed</span>
     <span class="metric"><b>Help</b> times a person had to step in (goal: zero)</span>
   </div>
 </section>
@@ -461,64 +459,58 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="section-head">
     <span class="eyebrow">The work</span>
     <h2>Eight tasks, in this order</h2>
-    <p class="lede">A task is done when its check passes, not when its code exists. Network, keyboard driving, camera view and teach mode already work.</p>
+    <p class="lede">A task is done when its check passes, not when its code exists. Network, keyboard driving, camera view and teach mode work, and everything is on GitHub.</p>
   </div>
   <div class="tasks">
-    <article class="task now">
-      <div class="task-top"><span class="num">1</span><span class="pill next">next</span></div>
+    <article class="task">
+      <div class="task-top"><span class="num">1</span><span class="pill built">done</span></div>
       <h3>Prepare the robot</h3>
-      <ol>
-        <li>Make every login load the robot's ROS workspace.</li>
-        <li>Apply the patch that replaces the pen holder with placing on the left.</li>
-        <li>Apply the fix for the crash on the <code>v</code> key.</li>
-        <li>Check the camera cable has slack through the arm's whole range; charge the battery.</li>
-      </ol>
-      <p class="done"><b>Done when</b> teach mode starts in a fresh login and pressing <code>v</code> with an object in view does not crash.</p>
+      <p>Workspace loads at login, teach-mode crash fixed, blue detection colour added, program switched to placing on the left.</p>
+      <p class="done"><b>Done when</b> teach mode starts and <code>v</code> lists blue without errors.</p>
     </article>
     <article class="task">
-      <div class="task-top"><span class="num">2</span><span class="pill untested">in progress</span></div>
-      <h3>Teach the five values</h3>
-      <p>Use the red container only. Save Look first, then grab spot, Grip and Drop as described above. Ready is already saved.</p>
-      <p class="done"><b>Done when</b> <code>v</code> lists look, ready, grab_spot, grip and drop, and the grab spot sits near the middle of the picture width.</p>
+      <div class="task-top"><span class="num">2</span><span class="pill built">done</span></div>
+      <h3>Teach the arm</h3>
+      <p>Look, Grip and Drop saved with the red cube. The gripper direction turned out reversed (low is open), so the open value was set to 200.</p>
+      <p class="done"><b>Done when</b> <code>v</code> lists look, ready, grip and drop.</p>
     </article>
     <article class="task">
-      <div class="task-top"><span class="num">3</span><span class="pill untested">partly done</span></div>
-      <h3>Check the camera sees each object</h3>
-      <p>Red and pink were detected while teaching; yellow is unchecked and is see-through, so it may look pale. Put each object 20, 50 and 80 cm ahead in the Look pose, then check an empty floor.</p>
-      <div class="try"><span class="try-label">What to adjust</span><span class="chip">colour ranges</span><span class="chip">MIN_OBJ_AREA</span></div>
-      <p class="done"><b>Done when</b> every object has a steady rectangle at 20 and 50 cm, and the empty floor shows none.</p>
+      <div class="task-top"><span class="num">3</span><span class="pill untested">confirm</span></div>
+      <h3>Arm-only pick test</h3>
+      <p><code>python3 ~/cleanup.py pick</code> runs through every move. It does not look for the cube, so it reports "No object seen" by design.</p>
+      <p class="done"><b>Done when</b> a cube placed by hand at the grab spot is lifted and set down on the left, 5 times out of 5.</p>
     </article>
-    <article class="task">
-      <div class="task-top"><span class="num">4</span><span class="pill later">then</span></div>
-      <h3>Arm-only test</h3>
-      <p>Add a <code>pick</code> test command that runs only the pick and place steps (not written yet). Put the red container on the grab spot by hand and run it.</p>
-      <p class="done"><b>Done when</b> the container is picked up and set down on the left without slipping or tipping, 5 times out of 5.</p>
+    <article class="task now">
+      <div class="task-top"><span class="num">4</span><span class="pill next">next</span></div>
+      <h3>See the detection work</h3>
+      <p>Run <code>python3 ~/detect_objects.py</code> with the clean-up camera view open. Move the blue cube around; take it away.</p>
+      <p class="done"><b>Done when</b> blue always has a rectangle, its numbers follow the cube, and red and wood get none.</p>
     </article>
     <article class="task">
       <div class="task-top"><span class="num">5</span><span class="pill later">then</span></div>
-      <h3>Drive-only test</h3>
-      <p>Add an <code>approach</code> test command that searches, drives and lines up, then stops without grabbing (not written yet). Start the object ahead, to each side, and behind.</p>
-      <div class="try"><span class="try-label">Settings likely to need tuning</span><span class="chip">TURN_SIGN</span><span class="chip">FLIP_X</span><span class="chip">NEAR_Y</span><span class="chip">CENTRE_TOL</span><span class="chip">TURN_RATE</span><span class="chip">FINE_TOL</span><span class="chip">FINE_SPEED</span></div>
-      <p class="done"><b>Done when</b> the robot stops with the object on the green cross from every starting position, 5 times out of 5.</p>
+      <h3>Calibrate the target spot</h3>
+      <p>Apply the fetch patch, run <code>python3 ~/cleanup.py calib</code>, and put the cube at the grab spot when asked. If the raised camera cannot see that spot, tilt the wrist down and save Look again.</p>
+      <p class="done"><b>Done when</b> it prints <code>Saved LOOK TARGET</code>.</p>
     </article>
     <article class="task">
       <div class="task-top"><span class="num">6</span><span class="pill later">then</span></div>
-      <h3>One object, full cycle</h3>
-      <p>Join tasks 4 and 5 with <code>python3 ~/cleanup.py run</code>, with only the red container on the floor.</p>
-      <p class="done"><b>Done when</b> the first pick-and-place succeeds with no help in 3 runs in a row.</p>
+      <h3>Fetch, cube straight ahead</h3>
+      <p>On the floor, cube 50 cm ahead: <code>python3 ~/cleanup.py fetch</code>.</p>
+      <div class="try"><span class="try-label">Settings likely to need tuning</span><span class="chip">TURN_SIGN</span><span class="chip">FLIP_X</span><span class="chip">LOOK_TOL</span><span class="chip">TURN_RATE</span><span class="chip">FINE_SPEED</span></div>
+      <p class="done"><b>Done when</b> the cube ends up on the left with no help, 3 runs in a row.</p>
     </article>
     <article class="task">
       <div class="task-top"><span class="num">7</span><span class="pill later">then</span></div>
-      <h3>All three objects</h3>
-      <p>Add the yellow container, then the highlighter laid pointing away from the robot. Check one grip width holds all three; if the highlighter stays loose, it waits for grip by feel in task 8.</p>
-      <p class="done"><b>Done when</b> one run moves all three, in 4 runs out of 5.</p>
+      <h3>Fetch from anywhere</h3>
+      <p>Cube to the side, behind, and with the red and wooden cubes nearby.</p>
+      <p class="done"><b>Done when</b> every rung of the test ladder passes 4 times out of 5, and no other cube is ever touched.</p>
     </article>
     <article class="task">
       <div class="task-top"><span class="num">8</span><span class="pill later">later</span></div>
       <h3>Make it robust</h3>
-      <p>Stop picking up objects it has already moved, and fix the weak spots found in tasks 6 and 7.</p>
-      <div class="try"><span class="try-label">Candidates</span><span class="chip">done zone on the left</span><span class="chip">grip by feel</span><span class="chip">grab check</span><span class="chip">turn wrist to match</span><span class="chip">LED status</span></div>
-      <p class="done"><b>Done when</b> a three-object run picks nothing up twice and needs no help.</p>
+      <p>Fix the weak spots found in tasks 6 and 7.</p>
+      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">grab check</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
+      <p class="done"><b>Done when</b> ten runs in a row need no help.</p>
     </article>
   </div>
 </section>
@@ -530,16 +522,16 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <h2>Habits that save time and the robot</h2>
   </div>
   <div class="rules">
-    <div class="rule-card"><h3>Clear floor, hand on Ctrl+C</h3><p>The robot cannot see obstacles. Test in an open area about 1–2 m across, and stop it the moment it does something unexpected.</p></div>
+    <div class="rule-card"><h3>Fetch on the floor, hand on Ctrl+C</h3><p>The robot cannot see edges or obstacles. Never run <span class="mono">fetch</span> on a table, and stop it the moment it does something unexpected.</p></div>
+    <div class="rule-card"><h3>Keep the charger connected</h3><p>A weak battery has stopped the robot booting, and a big shoulder move has cut its power. Tap the shoulder keys rather than holding them.</p></div>
+    <div class="rule-card"><h3>Mind the camera cable</h3><p>If the picture freezes after arm moves, the cable was probably tugged. Reseat it, leave slack for the low grab position, and reboot.</p></div>
     <div class="rule-card"><h3>Change one setting at a time</h3><p>Run, note what went wrong, change one value, run again. Two changes at once hide which one helped.</p></div>
-    <div class="rule-card"><h3>Re-check colours when the light changes</h3><p>Colour detection depends on lighting. A different room or time of day means repeating the task 3 check.</p></div>
-    <div class="rule-card"><h3>Mind the camera cable</h3><p>If the camera picture freezes after arm moves, the cable has probably been tugged. Reseat it, leave slack, and reboot.</p></div>
+    <div class="rule-card"><h3>Re-check colours when the light changes</h3><p>Colour detection depends on lighting. A different room or time of day means repeating task 4.</p></div>
     <div class="rule-card"><h3>Halt before switching off</h3><p>Run <code>sudo halt</code> and wait a few seconds before the power switch, so the SD card is not damaged.</p></div>
-    <div class="rule-card"><h3>Keep the hotspot steady</h3><p>Turn on the phone hotspot before the robot. If the robot misses it, it falls back to its own Wi-Fi after about 30 seconds.</p></div>
   </div>
 </section>
 
-<footer>ArmPi Pro clean-up project · status 13 November 2026. The animation shows the intended behaviour; the program has not yet run on its own on the robot.</footer>
+<footer>ArmPi Pro blue cube fetch · status 13 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour; <span class="mono">fetch</span> has not yet run on the robot.</footer>
 </main>
 
 <script>
@@ -556,12 +548,12 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 
   /* ---------- state explainer ---------- */
   const NOTES = {
-    SEARCH: ['Search', 'Arm raised. The robot turns on the spot until a red, pink or yellow patch appears in three pictures in a row. After 45 seconds with nothing, the run ends.'],
-    APPROACH: ['Approach', 'Turn until the object is in the centre band, then drive forward with small corrections. Stop when its lower edge reaches the close-enough line. Lost for 2 seconds: back to searching.'],
-    LINE_UP: ['Line up', 'Arm down, camera on the gripper. Slide sideways and forward in small steps until the object sits within 18 pixels of the taught grab spot. Gives up after 25 seconds.'],
-    PICK: ['Pick', 'Lower to the taught grip height, close the gripper to the taught width, lift back to the raised pose. The wheels do not move.'],
-    PLACE: ['Place', 'Turn the arm base to the left, lower until the object rests on the floor, open, lift. Then start searching for the next object.'],
-    DONE: ['Finished', 'Three objects moved, or a full search found nothing. The robot stops with the arm raised.'],
+    SEARCH: ['Search', 'Arm raised. The robot turns on the spot until blue appears in three pictures in a row. Red, wooden or anything else that is not blue is ignored. After 45 seconds with no blue, it gives up.'],
+    APPROACH: ['Approach', 'While the cube is far, the robot turns until it is in the centre band of the picture, then drives forward with small corrections. Lost for 2 seconds: back to searching.'],
+    LINE_UP: ['Slide in', 'Once the cube is close, the robot slides sideways and forward until the cube sits within 20 pixels of the spot recorded by calib. The arm stays raised.'],
+    PICK: ['Pick', 'Lower to the taught grip position with the gripper open, close to the taught width, lift back to the raised pose. The wheels do not move.'],
+    PLACE: ['Place', 'Turn the arm base to the left, lower until the cube rests on the floor, open, lift back up.'],
+    DONE: ['Finished', 'The cube is on the left, or no blue was found after three tries. The robot stops with the arm raised.'],
   };
   const note = document.getElementById('stateNote');
   const states = document.querySelectorAll('.fsm g.st');
@@ -569,97 +561,83 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   states.forEach(g => { ['mouseenter', 'focus', 'click'].forEach(ev => g.addEventListener(ev, () => show(g.dataset.s))); });
   show('APPROACH');
 
-  /* ---------- clean-up scene: a small simulation, precomputed ---------- */
+  /* ---------- fetch scene: a small simulation, precomputed ---------- */
   const PX = 250, DT = 1 / 30, SPEEDUP = 4;
-  const FOV = rad(30), RANGE = 1.1, NEAR = 0.22, GRAB = 0.17, PLACE_R = 0.21;
+  const FOV = rad(30), RANGE = 1.1, NEAR = 0.24, GRAB = 0.17, PLACE_R = 0.21;
   const DRIVE = 0.07, FINE = 0.035, TURN = 0.5, AIM = 0.2 * FOV;
   const OBJ = [
-    { name: 'red', kind: 'box', col: '#d7343c', x: 2.3, y: 0.42, rot: 0 },
-    { name: 'yellow', kind: 'box', col: '#e2c400', x: 1.2, y: 0.42, rot: 0 },
-    { name: 'pink', kind: 'pen', col: '#ff4f9a', x: 2.2, y: 1.15, rot: 0.6 },
+    { name: 'blue', col: '#2f7fd8', x: 2.35, y: 0.45, target: true },
+    { name: 'red', col: '#d7343c', x: 0.9, y: 0.95 },
+    { name: 'wood', col: '#c9a77c', x: 1.05, y: 0.3 },
   ];
-  const objs = OBJ.map(o => ({ x: o.x, y: o.y, moved: false }));
-  const R = { x: 1.55, y: 0.85, h: 0 };
+  const objs = OBJ.map(o => ({ x: o.x, y: o.y }));
+  const R = { x: 1.55, y: 0.85, h: 2.8 };
   const relTo = (r, p) => {
     const dx = p[0] - r.x, dy = p[1] - r.y, fx = Math.cos(r.h), fy = Math.sin(r.h);
     return { d: Math.hypot(dx, dy), b: Math.atan2(-dx * fy + dy * fx, dx * fx + dy * fy) };
   };
-  const rel = o => relTo(R, [o.x, o.y]);
+  const inView = (r, p) => { const q = relTo(r, p); return Math.abs(q.b) < FOV && q.d < RANGE && q.d > 0.08; };
   const lerp = (a, b, u) => a + (b - a) * Math.max(0, Math.min(1, u));
 
-  let phase = 'SEARCH', pt = 0, spun = 0, seen = 0, okT = 0, tgt = -1, carry = -1, grip = 1, armAng = 0, reach = GRAB, down = false, count = 0, t = 0;
+  let phase = 'SEARCH', pt = 0, seen = 0, okT = 0, carry = false, placed = false, grip = 1, armAng = 0, reach = GRAB, t = 0;
   const go = p => { phase = p; pt = 0; };
   const frames = [];
   for (let guard = 0; guard < 40000; guard++) {
     let turning = false;
+    const B = objs[0];
     if (phase === 'SEARCH') {
-      down = false; armAng = 0; reach = GRAB;
-      let best = -1, bd = 1e9;
-      objs.forEach((o, k) => { if (o.moved) return; const q = rel(o); if (Math.abs(q.b) < FOV && q.d < RANGE && q.d < bd) { bd = q.d; best = k; } });
-      if (best >= 0) { seen += DT; if (seen >= 0.3) { tgt = best; seen = 0; go('APPROACH'); } }
-      else { seen = 0; R.h += TURN * DT; spun += TURN * DT; turning = true; if (spun > 2 * Math.PI + 0.2) go('DONE'); }
+      if (inView(R, [B.x, B.y])) { seen += DT; if (seen >= 0.3) { seen = 0; go('APPROACH'); } }
+      else { seen = 0; R.h += TURN * DT; turning = true; }
     } else if (phase === 'APPROACH') {
-      const q = rel(objs[tgt]), close = q.d <= NEAR;
-      if (close && Math.abs(q.b) < AIM) go('LOOK_DOWN');
+      const q = relTo(R, [B.x, B.y]), close = q.d <= NEAR;
+      if (close && Math.abs(q.b) < AIM) go('LINE_UP');
       else if (Math.abs(q.b) > AIM || close) { R.h += Math.sign(q.b) * Math.min(TURN * DT, Math.abs(q.b)); turning = true; }
       else { R.x += Math.cos(R.h) * DRIVE * DT; R.y += Math.sin(R.h) * DRIVE * DT; R.h += q.b * 0.8 * DT; }
-    } else if (phase === 'LOOK_DOWN') {
-      if (pt >= 1.5) { down = true; okT = 0; go('LINE_UP'); }
     } else if (phase === 'LINE_UP') {
-      const gx = R.x + Math.cos(R.h) * GRAB, gy = R.y + Math.sin(R.h) * GRAB, o = objs[tgt];
-      const ex = o.x - gx, ey = o.y - gy, L = Math.hypot(ex, ey);
+      const gx = R.x + Math.cos(R.h) * GRAB, gy = R.y + Math.sin(R.h) * GRAB;
+      const ex = B.x - gx, ey = B.y - gy, L = Math.hypot(ex, ey);
       if (L < 0.004) { okT += DT; if (okT >= 0.3) go('PICK'); }
       else { okT = 0; const k = Math.min(FINE * DT, L) / L; R.x += ex * k; R.y += ey * k; }
     } else if (phase === 'PICK') {
-      if (pt >= 1.5) grip = lerp(1, 0.3, (pt - 1.5) / 0.8);
-      if (pt >= 2.3 && carry < 0) carry = tgt;
-      if (pt >= 3.8) { down = false; go('PLACE'); }
+      if (pt >= 2.0) grip = lerp(1, 0.3, (pt - 2.0) / 1.0);
+      if (pt >= 3.0) carry = true;
+      if (pt >= 5.5) go('PLACE');
     } else if (phase === 'PLACE') {
-      armAng = lerp(0, -Math.PI / 2, pt / 1.5); reach = lerp(GRAB, PLACE_R, pt / 1.5);
-      if (pt >= 3.0 && carry >= 0) {
-        grip = lerp(0.3, 1, (pt - 3.0) / 0.7);
-        if (pt >= 3.7) { objs[carry].moved = true; carry = -1; tgt = -1; count++; }
-      }
-      if (pt >= 3.7) { armAng = lerp(-Math.PI / 2, 0, (pt - 3.7) / 1.5); reach = lerp(PLACE_R, GRAB, (pt - 3.7) / 1.5); }
-      if (pt >= 5.2) { grip = 1; spun = 0; go(count >= objs.length ? 'DONE' : 'SEARCH'); }
+      armAng = lerp(0, -Math.PI / 2, pt / 2.5); reach = lerp(GRAB, PLACE_R, pt / 2.5);
+      if (pt >= 5.0 && carry) { grip = lerp(0.3, 1, (pt - 5.0) / 1.0); if (pt >= 6.0) { carry = false; placed = true; } }
+      if (pt >= 6.0) { armAng = lerp(-Math.PI / 2, 0, (pt - 6.0) / 2.5); reach = lerp(PLACE_R, GRAB, (pt - 6.0) / 2.5); }
+      if (pt >= 8.5) { grip = 1; go('DONE'); }
     }
-    if (carry >= 0) { const a = R.h + armAng; objs[carry].x = R.x + Math.cos(a) * reach; objs[carry].y = R.y + Math.sin(a) * reach; }
-    const q = tgt >= 0 ? rel(objs[tgt]) : null;
-    frames.push({ t, phase, turning, R: { x: R.x, y: R.y, h: R.h }, O: objs.map(o => [o.x, o.y, o.moved]), carry, grip, armAng, reach, down, count, tgt, dist: q ? q.d : null });
+    if (carry) { const a = R.h + armAng; B.x = R.x + Math.cos(a) * reach; B.y = R.y + Math.sin(a) * reach; }
+    const q = relTo(R, [B.x, B.y]);
+    frames.push({ t, phase, turning, R: { x: R.x, y: R.y, h: R.h }, O: objs.map(o => [o.x, o.y]), carry, placed, grip, armAng, reach, dist: q.d });
     t += DT; pt += DT;
     if (phase === 'DONE' && pt > 2.5) break;
   }
 
   /* ---------- drawing ---------- */
-  const shape = (parent, k, x, y, scale, rot) => {
-    const o = OBJ[k], g = el('g', { transform: `translate(${x} ${y}) rotate(${rot * 180 / Math.PI})` }, parent);
-    if (o.kind === 'pen') {
-      const w = 0.12 * scale, h = 0.026 * scale;
-      el('rect', { x: -w / 2, y: -h / 2, width: w, height: h, rx: h * 0.3, fill: o.col }, g);
-      el('rect', { x: -w / 2, y: -h / 2, width: w * 0.26, height: h, rx: h * 0.3, fill: '#17181a' }, g);
-    } else {
-      const w = 0.06 * scale;
-      el('rect', { x: -w / 2, y: -w / 2, width: w, height: w, rx: w * 0.25, fill: o.col }, g);
-      el('rect', { x: -w * 0.3, y: -w * 0.34, width: w * 0.6, height: w * 0.24, rx: w * 0.1, fill: '#fff', 'fill-opacity': .3 }, g);
-    }
+  const cube = (parent, k, x, y, size, faded) => {
+    const o = OBJ[k], g = el('g', { transform: `translate(${x} ${y})` }, parent);
+    el('rect', { x: -size / 2, y: -size / 2, width: size, height: size, rx: size * 0.18, fill: o.col, 'fill-opacity': faded ? .55 : 1 }, g);
+    el('rect', { x: -size * 0.3, y: -size * 0.34, width: size * 0.6, height: size * 0.22, rx: size * 0.08, fill: '#fff', 'fill-opacity': .28 }, g);
   };
+  const CUBE = 0.05;
 
   const gDyn = document.getElementById('dyn');
   const drawWorld = f => {
     gDyn.replaceChildren();
     const rx = f.R.x * PX, ry = f.R.y * PX, h = f.R.h, deg = h * 180 / Math.PI;
-    if (!f.down) el('path', { d: fanPath(rx, ry, RANGE * PX, h - FOV, h + FOV), fill: 'var(--robot)', 'fill-opacity': .1, stroke: 'var(--robot)', 'stroke-opacity': .4 }, gDyn);
-    else {
-      const gv = el('g', { transform: `translate(${rx + Math.cos(h) * GRAB * PX} ${ry + Math.sin(h) * GRAB * PX}) rotate(${deg})` }, gDyn);
-      el('rect', { x: -0.045 * PX, y: -0.05 * PX, width: 0.09 * PX, height: 0.1 * PX, rx: 4, fill: 'var(--scan)', 'fill-opacity': .16, stroke: 'var(--scan)', 'stroke-opacity': .8 }, gv);
-    }
+    el('path', { d: fanPath(rx, ry, RANGE * PX, h - FOV, h + FOV), fill: 'var(--robot)', 'fill-opacity': .1, stroke: 'var(--robot)', 'stroke-opacity': .4 }, gDyn);
+    const gx = rx + Math.cos(h) * GRAB * PX, gy = ry + Math.sin(h) * GRAB * PX;
+    el('path', { d: `M${gx - 8} ${gy} H${gx + 8} M${gx} ${gy - 8} V${gy + 8}`, stroke: 'var(--ok)', 'stroke-width': 2 }, gDyn);
     f.O.forEach((p, k) => {
-      if (k === f.carry) return;
-      shape(gDyn, k, p[0] * PX, p[1] * PX, PX, OBJ[k].rot);
-      if (p[2]) {
+      if (k === 0 && f.carry) return;
+      cube(gDyn, k, p[0] * PX, p[1] * PX, CUBE * PX, k !== 0);
+      if (k !== 0) txt(gDyn, p[0] * PX, p[1] * PX + 28, OBJ[k].name + ': ignored', 't', 'middle');
+      else if (f.placed) {
         el('circle', { cx: p[0] * PX, cy: p[1] * PX, r: 20, fill: 'none', stroke: 'var(--ok)', 'stroke-width': 2 }, gDyn);
-        txt(gDyn, p[0] * PX, p[1] * PX + 34, 'moved', 't', 'middle');
-      } else if (k === f.tgt) {
+        txt(gDyn, p[0] * PX, p[1] * PX + 34, 'placed', 't', 'middle');
+      } else if (f.phase !== 'SEARCH') {
         el('circle', { cx: p[0] * PX, cy: p[1] * PX, r: 22, fill: 'none', stroke: 'var(--robot)', 'stroke-width': 2, 'stroke-dasharray': '5 4' }, gDyn);
       }
     });
@@ -671,76 +649,58 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     const ux = tx / L, uy = ty / L, px = -uy, py = ux;
     el('line', { x1: 0, y1: 0, x2: tx - ux * 12, y2: ty - uy * 12, stroke: 'var(--ink)', 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-opacity': .85 }, g);
     el('circle', { cx: 0, cy: 0, r: 7, fill: 'var(--panel)', stroke: 'var(--ink)', 'stroke-width': 2 }, g);
-    if (f.carry >= 0) { const p = f.O[f.carry]; shape(gDyn, f.carry, p[0] * PX, p[1] * PX, PX, OBJ[f.carry].rot); }
-    const off = (0.025 + 0.02 * f.grip) * PX;
+    if (f.carry) cube(gDyn, 0, f.O[0][0] * PX, f.O[0][1] * PX, CUBE * PX, false);
+    const off = (0.03 + 0.02 * f.grip) * PX;
     const gf = el('g', { transform: `translate(${rx} ${ry}) rotate(${deg})` }, gDyn);
     [-1, 1].forEach(s => el('line', { x1: tx - ux * 12 + px * off * s, y1: ty - uy * 12 + py * off * s, x2: tx + ux * 5 + px * off * s, y2: ty + uy * 5 + py * off * s, stroke: 'var(--ink)', 'stroke-width': 4, 'stroke-linecap': 'round' }, gf));
   };
 
+  const camPos = q => {
+    const s = Math.min(34, 4.2 / q.d), x = 80 + q.b / FOV * 80, yb = 120 * (0.16 + 0.68 * Math.min(1, GRAB / q.d));
+    return { x, y: yb - s / 2, s };
+  };
   const cam = document.getElementById('cam');
   const drawCam = f => {
     cam.replaceChildren();
     el('rect', { x: 0, y: 0, width: 160, height: 120, fill: 'var(--paper)' }, cam);
-    if (!f.down) {
-      el('rect', { x: 0, y: 0, width: 160, height: 18, fill: 'var(--grid)' }, cam);
-      el('rect', { x: 64, y: 0, width: 32, height: 120, fill: 'var(--robot)', 'fill-opacity': .07 }, cam);
-      const ny = 120 * 0.78;
-      el('line', { x1: 0, y1: ny, x2: 160, y2: ny, stroke: 'var(--muted)', 'stroke-dasharray': '4 3' }, cam);
-      txt(cam, 156, ny - 3, 'close enough', 't-cam', 'end', { fill: 'var(--muted)' });
-      f.O.map((p, k) => ({ p, k, q: relTo(f.R, p) })).filter(o => o.k !== f.carry).sort((a, b) => b.q.d - a.q.d).forEach(({ p, k, q }) => {
-        if (Math.abs(q.b) > FOV * 1.15 || q.d > RANGE * 1.05 || q.d < 0.1) return;
-        const sp = Math.max(4, 5.5 / q.d), x = 80 + q.b / FOV * 80, yb = 120 * Math.min(0.95, 0.2 + 0.58 * NEAR / q.d);
-        const pen = OBJ[k].kind === 'pen', hh = pen ? sp * 0.45 : sp, hw = pen ? sp * 2 : sp;
-        shape(cam, k, x, yb - hh / 2, sp / 0.06, 0);
-        const detected = Math.abs(q.b) < FOV && q.d < RANGE && !p[2];
-        if (detected) {
-          el('rect', { x: x - hw / 2 - 2, y: yb - hh - 2, width: hw + 4, height: hh + 4, fill: 'none', stroke: OBJ[k].col, 'stroke-width': 1.4 }, cam);
-          txt(cam, x - hw / 2 - 2, yb - hh - 5, OBJ[k].name, 't-cam', 'start', { fill: OBJ[k].col });
-        }
-      });
-      if (f.carry >= 0) {
-        shape(cam, f.carry, 80, 108, 30 / 0.06, 0);
-        el('rect', { x: 50, y: 92, width: 8, height: 28, rx: 2, class: 's-ink' }, cam);
-        el('rect', { x: 102, y: 92, width: 8, height: 28, rx: 2, class: 's-ink' }, cam);
+    el('rect', { x: 0, y: 0, width: 160, height: 16, fill: 'var(--grid)' }, cam);
+    el('rect', { x: 64, y: 0, width: 32, height: 120, fill: 'var(--robot)', 'fill-opacity': .07 }, cam);
+    const spot = camPos({ d: GRAB, b: 0 });
+    el('path', { d: `M${spot.x - 10} ${spot.y} H${spot.x + 10} M${spot.x} ${spot.y - 10} V${spot.y + 10}`, stroke: 'var(--ok)', 'stroke-width': 2 }, cam);
+    f.O.map((p, k) => ({ k, q: relTo(f.R, p) })).filter(o => !(o.k === 0 && (f.carry || f.placed))).sort((a, b) => b.q.d - a.q.d).forEach(({ k, q }) => {
+      if (Math.abs(q.b) > FOV * 1.15 || q.d > RANGE * 1.05 || q.d < 0.08) return;
+      const c = camPos(q);
+      cube(cam, k, c.x, c.y, c.s, false);
+      if (k === 0 && Math.abs(q.b) < FOV && q.d < RANGE) {
+        el('rect', { x: c.x - c.s / 2 - 2, y: c.y - c.s / 2 - 2, width: c.s + 4, height: c.s + 4, fill: 'none', stroke: OBJ[0].col, 'stroke-width': 1.4 }, cam);
+        txt(cam, c.x - c.s / 2 - 2, c.y - c.s / 2 - 5, 'blue', 't-cam', 'start', { fill: OBJ[0].col });
       }
-    } else {
-      const S = 700, h = f.R.h, fx = Math.cos(h), fy = Math.sin(h), gx = f.R.x + fx * GRAB, gy = f.R.y + fy * GRAB;
-      f.O.forEach((p, k) => {
-        const dx = p[0] - gx, dy = p[1] - gy, along = dx * fx + dy * fy, side = -dx * fy + dy * fx;
-        const x = 80 + side * S, y = 84 - along * S;
-        if (x < -60 || x > 220 || y < -60 || y > 180) return;
-        shape(cam, k, x, y, S, OBJ[k].rot - h - Math.PI / 2);
-        if (!p[2] && k !== f.carry) {
-          const hw = OBJ[k].kind === 'pen' ? 46 : 25;
-          el('rect', { x: x - hw, y: y - hw, width: hw * 2, height: hw * 2, fill: 'none', stroke: OBJ[k].col, 'stroke-width': 1.4 }, cam);
-          txt(cam, x - hw, y - hw - 3, OBJ[k].name, 't-cam', 'start', { fill: OBJ[k].col });
-        }
-      });
-      el('path', { d: 'M70 84 H90 M80 74 V94', stroke: 'var(--ok)', 'stroke-width': 2 }, cam);
-      const off = 18 + 16 * f.grip;
-      el('rect', { x: 80 - off - 10, y: 62, width: 10, height: 64, rx: 3, class: 's-ink' }, cam);
-      el('rect', { x: 80 + off, y: 62, width: 10, height: 64, rx: 3, class: 's-ink' }, cam);
+    });
+    if (f.carry) {
+      cube(cam, 0, 80, 108, 28, false);
+      el('rect', { x: 52, y: 94, width: 8, height: 26, rx: 2, class: 's-ink' }, cam);
+      el('rect', { x: 100, y: 94, width: 8, height: 26, rx: 2, class: 's-ink' }, cam);
     }
   };
 
-  const LABEL = { SEARCH: 'SEARCH', APPROACH: 'APPROACH', LOOK_DOWN: 'LOOK DOWN', LINE_UP: 'LINE UP', PICK: 'PICK', PLACE: 'PLACE', DONE: 'FINISHED' };
-  const reasonFor = f => {
-    const name = f.tgt >= 0 ? OBJ[f.tgt].name : '';
+  const LABEL = { SEARCH: 'SEARCH', APPROACH: 'APPROACH', LINE_UP: 'SLIDE IN', PICK: 'PICK', PLACE: 'PLACE', DONE: 'FINISHED' };
+  const reasonFor = (f, ignored) => {
     switch (f.phase) {
-      case 'SEARCH': return 'Arm raised. Turning on the spot until a red, pink or yellow patch appears in the picture.';
+      case 'SEARCH': return ignored.length
+        ? `Turning on the spot. The ${ignored.join(' and ')} cube${ignored.length > 1 ? 's are' : ' is'} in view, but not blue, so the robot keeps turning.`
+        : 'Arm raised. Turning on the spot until blue appears in the picture.';
       case 'APPROACH': return f.turning
-        ? `The ${name} object is off to one side of the picture, so the robot turns toward it.`
-        : `The ${name} object is centred, so the robot drives forward. It stops when the object reaches the close-enough line.`;
-      case 'LOOK_DOWN': return 'Close enough. The wheels stop and the arm tilts the camera down at the open gripper.';
-      case 'LINE_UP': return 'Sliding in small steps until the object sits on the green cross, the taught grab spot.';
-      case 'PICK': return 'Lowering, closing the gripper to the taught width, lifting. The wheels stay still.';
-      case 'PLACE': return 'Swinging the arm to the left, setting the object on the floor, letting go.';
-      default: return 'Three objects moved. The run ends with the arm raised.';
+        ? 'Blue is off to one side of the picture, so the robot turns toward it.'
+        : 'Blue is centred, so the robot drives forward toward it.';
+      case 'LINE_UP': return 'Close now. Sliding sideways and forward until the cube covers the green cross, the spot recorded by calib.';
+      case 'PICK': return 'On the spot. The arm lowers with the gripper open, closes on the cube and lifts. The wheels stay still.';
+      case 'PLACE': return 'Swinging the arm to the left, setting the cube on the floor, letting go.';
+      default: return 'The blue cube is on the left. Fetch is finished.';
     }
   };
 
   const chip = document.getElementById('chip'), reason = document.getElementById('reason');
-  const kvTarget = document.getElementById('kvTarget'), kvDist = document.getElementById('kvDist'), kvGrip = document.getElementById('kvGrip'), kvCount = document.getElementById('kvCount');
+  const kvTarget = document.getElementById('kvTarget'), kvDist = document.getElementById('kvDist'), kvGrip = document.getElementById('kvGrip'), kvIgnored = document.getElementById('kvIgnored');
   const scrub = document.getElementById('scrub'), clock = document.getElementById('clock'), play = document.getElementById('play');
   const N = frames.length - 1;
   scrub.max = N;
@@ -748,12 +708,14 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   const draw = i => {
     const f = frames[Math.max(0, Math.min(N, i))];
     drawWorld(f); drawCam(f);
+    const ignored = OBJ.map((o, k) => k).filter(k => k !== 0 && inView(f.R, f.O[k])).map(k => OBJ[k].name);
     chip.className = 'state-chip ' + f.phase; chip.textContent = LABEL[f.phase];
-    reason.textContent = reasonFor(f);
-    kvTarget.textContent = f.tgt >= 0 ? OBJ[f.tgt].name : '–';
-    kvDist.textContent = f.dist !== null && f.carry < 0 ? Math.round(f.dist * 100) + ' cm' : '–';
+    reason.textContent = reasonFor(f, ignored);
+    const tracking = f.phase !== 'SEARCH' && f.phase !== 'DONE';
+    kvTarget.textContent = tracking ? 'blue' : '–';
+    kvDist.textContent = tracking && !f.carry ? Math.round(f.dist * 100) + ' cm' : '–';
     kvGrip.textContent = f.grip > 0.8 ? 'open' : 'closed';
-    kvCount.textContent = f.count + ' of 3';
+    kvIgnored.textContent = ignored.length ? ignored.join(', ') : '–';
     clock.textContent = `${f.t.toFixed(0)} s robot time`;
     scrub.value = i;
   };
@@ -770,7 +732,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   const setPlaying = p => { playing = p; play.textContent = p ? 'Pause' : 'Play'; last = null; if (p) requestAnimationFrame(tick); };
   play.addEventListener('click', () => setPlaying(!playing));
   scrub.addEventListener('input', () => { i = +scrub.value; draw(i); });
-  if (!playing) i = Math.round(N * 0.2);
+  if (!playing) i = Math.round(N * 0.3);
   draw(Math.floor(i));
   setPlaying(playing);
 })();
