@@ -82,6 +82,12 @@ Findings:
 
 Done when: messages from the laptop appear on the robot within half a second.
 
+**Results (13 November 2026): passed.** `vlm/phase2_test.py` connected to the robot's rosbridge in
+0.15 s and saw all 67 robot topics (camera, wheels, arm servos). 24 of 24 test messages made the
+round trip laptop -> robot -> laptop, median 37 ms, maximum 113 ms. On the robot,
+`rostopic echo /vlm/target` showed the messages arriving. The network delay is small next to
+YOLO-World's ~220 ms per picture.
+
 ### Phase 3 — Laptop bridge script (`vlm/vlm_bridge.py`)
 
 1. Loop: fetch snapshot, run YOLO-World with the typed prompt, publish the result.
