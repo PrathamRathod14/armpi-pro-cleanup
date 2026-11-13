@@ -23,6 +23,9 @@ GRAB_Z = -0.08                  # gripper height when grabbing (metres, below th
 GRIP_OPEN, GRIP_CLOSE = 120, 450   # low = open on this robot
 X_GAIN, Y_GAIN = 0.06, 0.00003  # tracking gains (Hiwonder's values)
 DEADBAND = 10                   # pixels: close enough to the target point
+ON_TARGET = 20                  # pixels: must be this close to the cross before grabbing
+MAX_REACH = 0.25                # metres: farthest the gripper can still grab at table height
+JUMP = 140                      # pixels: a bigger jump between frames means a different object
 STABLE_FRAMES = 10              # frames in a row on target before grabbing
 MAX_TRIES = 10
 POSE_FILE = os.path.expanduser('~/cleanup_poses.json')
@@ -54,16 +57,19 @@ def on_image(msg):
     hsv = cv2.cvtColor(cv2.GaussianBlur(img, (5, 5), 0), cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, np.array(BLUE[0]), np.array(BLUE[1]))
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
-    cube = None
+    blobs = []
     for c in cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]:
         a = cv2.contourArea(c)
-        if a >= MIN_AREA and (cube is None or a > cube[2]):
+        if a >= MIN_AREA:
             m = cv2.moments(c)
             cx, cy = int(m['m10'] / m['m00']), int(m['m01'] / m['m00'])
-            cube = (cx, cy, a, cv2.boundingRect(c))
+            blobs.append((cx, cy, a, cv2.boundingRect(c)))
+    blobs.sort(key=lambda b: -b[2])
+    cube = blobs[0] if blobs else None
     with lock:
         latest['seq'] += 1
         latest['cube'] = cube
+        latest['blobs'] = blobs
         latest['size'] = (w, h)
     if cube:
         x, y, bw, bh = cube[3]
@@ -134,13 +140,18 @@ def track(base, reach):
     say('Tracking the cube')
     x_dis, y_dis = float(base), float(reach)
     last_seq, stable, t_lost, t0 = cube_now()[0], 0, time.time(), time.time()
-    shown = 0.0
+    shown, prev, at_limit = 0.0, None, 0
     while not rospy.is_shutdown() and time.time() - t0 < 40:
         seq, cube = cube_now()
         if seq == last_seq:
             time.sleep(0.01)
             continue
         last_seq = seq
+        if prev is not None:                 # follow the same object, not whatever is biggest
+            with lock:
+                blobs = list(latest.get('blobs', []))
+            near = [b for b in blobs if (b[0] - prev[0]) ** 2 + (b[1] - prev[1]) ** 2 < JUMP ** 2]
+            cube = min(near, key=lambda b: (b[0] - prev[0]) ** 2 + (b[1] - prev[1]) ** 2) if near else None
         if cube is None:
             stable = 0
             if time.time() - t_lost > 3:
@@ -149,15 +160,23 @@ def track(base, reach):
             continue
         t_lost = time.time()
         cx, cy = cube[0], cube[1]
+        prev = (cx, cy)
         dx = X_GAIN * (CENTRE_X - cx) if abs(cx - CENTRE_X) >= DEADBAND else 0.0
         dy = Y_GAIN * (CENTRE_Y - cy) if abs(cy - CENTRE_Y) >= DEADBAND else 0.0
         x_dis = clamp(x_dis + dx, 200, 800)
-        y_dis = clamp(y_dis + dy, 0.12, 0.28)
+        y_dis = clamp(y_dis + dy, 0.12, MAX_REACH)
         t = ik_move(y_dis, HOVER_Z, int(x_dis), 20)
         if time.time() - shown > 0.5:
             shown = time.time()
             print('  cube in picture (%d, %d) -> arm: base %d, reach %.3f m' % (cx, cy, x_dis, y_dis))
-        if abs(dx) < 2 and abs(dy) < 0.003 and t:
+        if y_dis >= MAX_REACH and cy < CENTRE_Y - ON_TARGET:
+            at_limit += 1
+            if at_limit >= 15:
+                say('Object is beyond reach - move it closer (12-25 cm ahead)')
+                return None
+        else:
+            at_limit = 0
+        if abs(cx - CENTRE_X) < ON_TARGET and abs(cy - CENTRE_Y) < ON_TARGET and t:
             stable += 1
             if stable >= STABLE_FRAMES:
                 print('  above the cube: base %d, reach %.3f m' % (x_dis, y_dis))
