@@ -21,13 +21,15 @@ CENTRE_X, CENTRE_Y = 320, 410   # where the cube appears when the gripper is rig
 HOVER_Z = 0.03                  # gripper height while tracking (metres)
 GRAB_Z = -0.08                  # gripper height when grabbing (metres, below the arm base)
 GRIP_OPEN, GRIP_CLOSE = 120, 450   # low = open on this robot
-X_GAIN, Y_GAIN = 0.06, 0.00003  # tracking gains (Hiwonder's values)
+X_GAIN, Y_GAIN = 0.03, 0.000015  # tracking gains (Hiwonder's values)
 DEADBAND = 10                   # pixels: close enough to the target point
 ON_TARGET = 20                  # pixels: must be this close to the cross before grabbing
 MAX_REACH = 0.25                # metres: farthest the gripper can still grab at table height
 JUMP = 140                      # pixels: a bigger jump between frames means a different object
 STABLE_FRAMES = 10              # frames in a row on target before grabbing
 MAX_TRIES = 10
+SLOW = 2.0                      # 1 = original speed, 2 = half speed, 3 = a third
+TRACK_MS = 120                  # duration of each small tracking move (ms)
 POSE_FILE = os.path.expanduser('~/cleanup_poses.json')
 SCAN = [(500, 0.15), (400, 0.15), (600, 0.15), (300, 0.15), (700, 0.15),
         (500, 0.22), (400, 0.22), (600, 0.22), (300, 0.22), (700, 0.22)]   # (base, reach) to look around
@@ -84,6 +86,10 @@ def on_image(msg):
     image_pub.publish(out)
 
 
+def pause(sec):
+    time.sleep(sec * SLOW)
+
+
 def say(text):
     global status
     status = text
@@ -91,7 +97,7 @@ def say(text):
 
 
 def servos(ms, pairs):
-    bus_servo_control.set_servos(joints_pub, int(ms), tuple((int(i), int(p)) for i, p in pairs))
+    bus_servo_control.set_servos(joints_pub, int(ms * SLOW), tuple((int(i), int(p)) for i, p in pairs))
 
 
 def ik_move(reach, z, base, ms, extra=()):
@@ -119,7 +125,7 @@ def wait_frames(n=3):
 
 def home():
     ik_move(0.15, HOVER_Z, 500, 1500, extra=((1, GRIP_OPEN), (2, 500)))
-    time.sleep(1.8)
+    pause(1.8)
 
 
 def look_around():
@@ -129,7 +135,7 @@ def look_around():
         if rospy.is_shutdown():
             return None
         ik_move(reach, HOVER_Z, base, 800)
-        time.sleep(1.0)
+        pause(1.0)
         if wait_frames(3):
             return base, reach
     return None
@@ -165,7 +171,7 @@ def track(base, reach):
         dy = Y_GAIN * (CENTRE_Y - cy) if abs(cy - CENTRE_Y) >= DEADBAND else 0.0
         x_dis = clamp(x_dis + dx, 200, 800)
         y_dis = clamp(y_dis + dy, 0.12, MAX_REACH)
-        t = ik_move(y_dis, HOVER_Z, int(x_dis), 20)
+        t = ik_move(y_dis, HOVER_Z, int(x_dis), TRACK_MS / SLOW)
         if time.time() - shown > 0.5:
             shown = time.time()
             print('  cube in picture (%d, %d) -> arm: base %d, reach %.3f m' % (cx, cy, x_dis, y_dis))
@@ -192,34 +198,34 @@ def grab(base, reach, pitch):
     offset = -0.04 + (pitch + 180) * (0.07 / 30.0)    # Hiwonder's reach correction for the achieved pitch
     buzzer_pub.publish(0.1)
     servos(500, ((1, GRIP_OPEN),))
-    time.sleep(0.5)
+    pause(0.5)
     if not ik_move(reach + offset, GRAB_Z, base, 1000):
         say('Cube is out of reach')
         return False
-    time.sleep(1.5)
+    pause(1.5)
     servos(500, ((1, GRIP_CLOSE),))
-    time.sleep(0.8)
+    pause(0.8)
     servos(1500, ((1, GRIP_CLOSE), (2, 500), (3, 80), (4, 825), (5, 625), (6, 500)))   # lift (Hiwonder's carry pose)
-    time.sleep(1.6)
+    pause(1.6)
     return True
 
 
 def place_left(drop):
     say('Placing on the left')
     servos(1200, ((6, drop[6]),))
-    time.sleep(1.3)
+    pause(1.3)
     servos(1500, ((3, drop[3]), (4, drop[4]), (5, drop[5])))
-    time.sleep(1.8)
+    pause(1.8)
     servos(500, ((1, GRIP_OPEN),))
-    time.sleep(0.8)
+    pause(0.8)
     servos(1200, ((3, 80), (4, 825), (5, 625)))
-    time.sleep(1.3)
+    pause(1.3)
 
 
 def still_there(base, reach):
     """Look again where the cube was: if it is still under the camera, the grab missed."""
     ik_move(reach, HOVER_Z, base, 1500)
-    time.sleep(1.8)
+    pause(1.8)
     cube = wait_frames(3)
     return bool(cube and abs(cube[0] - CENTRE_X) < 80 and abs(cube[1] - CENTRE_Y) < 80)
 
