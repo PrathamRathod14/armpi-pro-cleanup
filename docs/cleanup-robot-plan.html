@@ -436,7 +436,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <h2>Arm only now, driving later</h2>
   </div>
   <div class="rules">
-    <div class="rule-card"><h3 class="mono">fetch_blue.py arm</h3><p>The wheels never move. The arm looks around in front of the robot, places the gripper over the cube with IK, grabs it and puts it on the left. If the cube is out of the arm's reach it asks you to move it. Safe on a table. <b>This is the current step.</b></p><span class="pill next">next to test</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py arm</h3><p>The wheels never move. The arm looks around in front of the robot, places the gripper over the cube with IK, grabs it and puts it on the left. If the cube is out of the arm's reach it asks you to move it. Safe on a table. <b>This is the current step.</b></p><span class="pill untested">works, being tuned</span></div>
     <div class="rule-card"><h3 class="mono">fetch_blue.py</h3><p>The full version. The robot turns to find the cube anywhere around it, drives up to it, then does the same IK grab, creeping the wheels if the cube is just out of reach. Floor only.</p><span class="pill later">after arm-only works</span></div>
   </div>
   <div class="metrics">
@@ -530,7 +530,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <article class="task now">
       <div class="task-top"><span class="num">6</span><span class="pill next">in progress</span></div>
       <h3>IK grab, arm only, then with driving</h3>
-      <p>Taught-position grabbing landed slightly off and only worked at one distance, so the grab now uses inverse kinematics (<code>fetch_blue.py</code>). First run it arm-only with <code>python3 ~/fetch_blue.py arm</code>, then with driving on the floor. Battery is charged (8.0 V).</p>
+      <p>Taught-position grabbing landed slightly off and only worked at one distance, so the grab now uses inverse kinematics (<code>fetch_blue.py</code>). Arm-only mode now runs: detection is stable after adding a second, looser colour test and short-gap holding, and the wrist turns to match the cube's sides. The grab works, but not every time yet. Next: tune the grab, then test with driving on the floor.</p>
       <div class="try"><span class="try-label">Settings likely to need tuning</span><span class="chip">TURN_SIGN</span><span class="chip">FLIP_X</span><span class="chip">LOOK_TOL</span><span class="chip">TURN_RATE</span><span class="chip">FINE_SPEED</span></div>
       <p class="done"><b>Done when</b> the cube ends up on the left with no help, 3 runs in a row.</p>
     </article>

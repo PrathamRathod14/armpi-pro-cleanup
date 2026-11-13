@@ -3,9 +3,11 @@
 A Hiwonder ArmPi Pro finds a blue cube, drives to it, picks it up and places it on the
 floor to its own left. It uses only the camera on its arm.
 
-**Status:** keyboard driving, arm control, camera view and teach mode work on the robot.
-Colour detection works for red and blue cubes. The arm-only pick test runs. The
-autonomous `fetch` mode has not been run on the robot yet.
+**Status (13 November 2026):** the main program is `robot/fetch_blue.py`. It finds the blue
+cube with colour and shape checks, lines the gripper up over it with Hiwonder's inverse
+kinematics, turns the wrist to match the cube's sides, grabs it and places it on the left.
+Arm-only mode (`fetch_blue.py arm`) runs on the robot: detection is stable and the grab works,
+but not every time yet. The driving mode has not been tested with the IK grab.
 
 ## Robot
 
@@ -21,6 +23,9 @@ autonomous `fetch` mode has not been run on the robot yet.
 
 | Path | Purpose |
 |---|---|
+| `robot/fetch_blue.py` | **Main program.** Stable blue detection, IK line-up, wrist alignment, grab, place left, retry. Modes: `look` (detection test), `arm` (wheels never move), no argument (search and drive) |
+| `robot/grasp_ik.py` | Earlier IK grab (arm only), kept for reference |
+| `robot/grasp_black.py` | Same IK grab looking for a dark object (the black cap test) |
 | `robot/cleanup.py` | The clean-up program: colour detection, teach mode, arm-only pick test, calibration, and the autonomous fetch |
 | `robot/patch_fetch.py` | Adds the `calib` and `fetch` modes to an older `cleanup.py` already on the robot |
 | `robot/teleop_keys.py` | Keyboard control of wheels, arm and gripper, with a saved home pose |
@@ -60,6 +65,14 @@ scp robot/cleanup.py robot/teleop_keys.py robot/detect_objects.py ubuntu@ubuntu.
 ## Using it
 
 ```bash
+python3 ~/fetch_blue.py look    # detection test: nothing moves
+python3 ~/fetch_blue.py arm     # grab the blue cube with the arm only (safe on a table)
+python3 ~/fetch_blue.py         # search and drive to the cube, then grab (floor only)
+```
+
+Older modes in `cleanup.py`:
+
+```bash
 python3 ~/teleop_keys.py        # drive by keyboard
 python3 ~/cleanup.py teach      # teach the arm positions
 python3 ~/cleanup.py pick       # arm only: grab the cube under the gripper, place it left
@@ -71,7 +84,8 @@ python3 ~/cleanup.py run        # older multi-object loop (Ctrl+C stops any mode
 `fetch` and `run` drive the robot: use them on the floor, never on a table.
 On this robot a low gripper value means open (about 200) and a high value means closed.
 
-Camera views in the laptop browser:
+Camera views in the laptop browser. If `ubuntu.local` does not load, use the robot's
+number address instead (run `hostname -I` on the robot), for example `http://10.238.54.20:8080/...`:
 
 - Camera: `http://ubuntu.local:8080/stream_viewer?topic=/usb_cam/image_raw`
 - Clean-up view (while `cleanup.py` runs): `http://ubuntu.local:8080/stream_viewer?topic=/cleanup/image`
