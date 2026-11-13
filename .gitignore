@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 wifi.yaml
+
+vlm/.venv/
+vlm/models/
+vlm/snapshots/
