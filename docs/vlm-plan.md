@@ -55,6 +55,26 @@ Why split it this way:
 Done when: the blue cube is found with confidence above 0.3 in robot pictures, and one setting
 runs at 3 or more pictures per second.
 
+**Results (13 November 2026), laptop CPU only (PyTorch; the OpenVINO export failed because of
+Windows' path-length limit in this folder, and is not needed at these speeds):**
+
+| Model | Prompt | Image size | Speed | Blue cube found in 3 robot pictures |
+|---|---|---|---|---|
+| YOLO-World small | "blue cube" | 640 | 7.9/s | No (nothing above 0.05) |
+| YOLO-World small | "blue square" | 640 | ~7/s | Weakly (0.09) |
+| **YOLO-World medium** | **"blue square"** | **480** | **4.5/s** | **Yes, 3 of 3, confidence 0.17–0.28, box exactly on the cube** |
+| YOLO-World medium | "blue square" | 640 | 3.1/s | Yes, 3 of 3, confidence 0.25–0.32 (0.43 in one test) |
+| YOLO-World medium | "blue square", "black cap" | 480 | 3.8/s | Yes, 3 of 3, 0.26–0.38 |
+
+Findings:
+
+- The prompt matters a lot: seen from above, the cube looks like a flat square, so "blue square"
+  works and "blue cube" does not.
+- The medium model is needed; the small one barely sees the cube.
+- No false detections on the dark-blue jeans and jacket that fooled the colour filter.
+- Chosen setting: medium model, image size 480, confidence threshold 0.15, about 4 pictures per second.
+- Not yet tested: the black cap (it was not in the pictures).
+
 ### Phase 2 — Connection test
 
 1. From the laptop, connect to `ws://10.238.54.20:9090` with roslibpy and list the robot's topics.
