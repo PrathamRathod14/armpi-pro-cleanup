@@ -23,14 +23,14 @@ COLOURS = {                 # HSV ranges, hue 0-179
     'pink':   [((150, 70, 100), (173, 255, 255))],
     'yellow': [((20, 70, 90), (36, 255, 255))],
     'green':  [((40, 80, 60), (85, 255, 255))],
-    'blue':   [((95, 110, 60), (130, 255, 255))],
+    'blue':   [((95, 110, 120), (130, 255, 255))],
     'black':  [((0, 0, 0), (179, 255, 60))],
 }
 MIN_OBJ_AREA = 250          # smallest object blob, in pixels
 MIN_BOX_AREA = 2500         # smallest box blob, in pixels
 BOX_IGNORE_BELOW = 0.80     # ignore the bottom of the image when looking for the box (gripper is there)
-DRIVE_SPEED = 70.0          # mm/s when approaching
-FINE_SPEED = 35.0           # mm/s for the final line-up
+DRIVE_SPEED = 50.0          # mm/s when approaching
+FINE_SPEED = 25.0           # mm/s for the final line-up
 TURN_RATE = 0.25            # rotation rate
 TURN_SIGN = 1               # set to -1 if the robot turns AWAY from what it sees
 FLIP_X = False              # set True if the final line-up slides the wrong way sideways
@@ -133,7 +133,10 @@ def stop():
     drive(0, 0, 0)
 
 def move(targets, ms):
-    servo_pub.publish(servo_cls([item_cls(int(i), int(p), int(ms)) for i, p in sorted(targets.items())]))
+    # start the servos one after another, so their start-up current does not peak together
+    for i, p in sorted(targets.items(), reverse=True):
+        servo_pub.publish(servo_cls([item_cls(int(i), int(p), int(ms))]))
+        time.sleep(0.25)
     time.sleep(ms / 1000.0 + 0.3)
 
 def arm(name, gripper):
@@ -346,7 +349,9 @@ def go_to_cube():
             else:
                 drive(DRIVE_SPEED, 90, -TURN_SIGN * TURN_RATE * ex)
         else:                                   # close: slide straight onto the spot
-            drive(FINE_SPEED, math.degrees(math.atan2(dy, dx)) % 360, 0)
+            dist = math.hypot(dx, dy)
+            speed = max(12.0, FINE_SPEED * min(1.0, dist / 80.0))   # slow down as it gets close
+            drive(speed, math.degrees(math.atan2(dy, dx)) % 360, 0)
         time.sleep(0.1)
     stop()
     return False
@@ -383,6 +388,122 @@ def fetch():
         print('Lost the cube - searching again')
     stop()
     say('Could not reach the cube')
+
+BASE_GAIN = 0.2            # base servo units per pixel of error
+BASE_TOL = 15              # pixels: how well centred before grabbing
+REACH_DY = 60              # pixels: how far the cube may be from the taught distance
+BASE_TRIM = 0              # servo units added to the base when grabbing; +/- shifts the grab sideways
+MAX_TRIES = 10             # attempts before giving up
+GRIP_SQUEEZE = 60          # extra closing used to test whether the cube is held
+HOLD_MARGIN = 25           # an empty gripper closes to within this of the test value
+CLOSE_DIR = 1              # +1: higher gripper value = more closed (true on this robot)
+USE_GRIP_CHECK = False     # squeeze test after lifting; off: it gave false 'empty' results
+MISS_DY = 60               # cube still this close to the grab spot after placing = the grab missed
+
+def nearest_blue(tx, ty):
+    v = view()
+    if not v or not v['objects']:
+        return None
+    return min(v['objects'], key=lambda o: (o[2] - tx) ** 2 + (o[3] - ty) ** 2)
+
+def holding():
+    """Squeeze a little harder: a gripper holding the cube is blocked, an empty one closes further."""
+    g = poses['grip'][1]
+    test = max(0, min(1000, g + CLOSE_DIR * GRIP_SQUEEZE))
+    servo_pub.publish(servo_cls([item_cls(1, test, 400)]))
+    time.sleep(0.8)
+    p = read_positions().get(1)
+    servo_pub.publish(servo_cls([item_cls(1, g, 300)]))
+    time.sleep(0.4)
+    if p is None:
+        print('  grip check: cannot read the gripper, assuming it holds')
+        return True
+    held = abs(test - p) > HOLD_MARGIN
+    print('  grip check: gripper at %d, empty would reach %d -> %s' % (p, test, 'HOLDING' if held else 'EMPTY'))
+    return held
+
+def reach_once():
+    tx, ty = poses['look_target']
+    base = poses['look'][6]
+    move(arm('look', 'open'), 2500)
+    time.sleep(0.8)
+    say('Turning the arm to the cube')
+    sign, last_dx, tgt = 1, None, None
+    for step in range(30):
+        tgt = nearest_blue(tx, ty)
+        if not tgt:
+            time.sleep(0.6)
+            tgt = nearest_blue(tx, ty)
+        if not tgt:
+            say('No blue cube in view - put it in front of the robot, within reach')
+            return 'wait'
+        dx = tgt[2] - tx
+        print('  cube at (%d, %d), %d px from the spot sideways, base %d' % (tgt[2], tgt[3], dx, base))
+        if abs(dx) < BASE_TOL:
+            break
+        if last_dx is not None and abs(dx) > abs(last_dx) + 5:
+            sign = -sign                     # the arm turned the wrong way: reverse
+        last_dx = dx
+        base = int(max(0, min(1000, base - sign * BASE_GAIN * dx)))
+        move({6: base}, 400)
+        time.sleep(0.4)
+    else:
+        say('Could not centre the cube')
+        return 'wait'
+    dy = tgt[3] - ty
+    if abs(dy) > REACH_DY:
+        say('Cube is %s: move it %s (about %d px off)'
+            % ('too close' if dy > 0 else 'too far', 'away' if dy > 0 else 'closer', abs(dy)))
+        return 'wait'
+    off = base - poses['look'][6]
+    say('Grabbing')
+    g = arm('grip', 'open')
+    g[6] = max(0, min(1000, poses['grip'][6] + off + BASE_TRIM))
+    move(g, 2000)
+    move({1: poses['grip'][1]}, 1000)
+    up = arm('look', 'closed')
+    up[6] = base
+    move(up, 2500)
+    if USE_GRIP_CHECK and not holding():
+        say('Gripper is empty - trying again')
+        move({1: poses['ready'][1]}, 800)
+        return 'retry'
+    say('Placing on the left')
+    move({6: poses['drop'][6]}, 2500)
+    move(arm('drop', 'closed'), 2500)
+    move({1: poses['ready'][1]}, 1000)
+    up = arm('look', 'open')
+    up[6] = poses['drop'][6]
+    move(up, 2500)
+    back = arm('look', 'open')
+    back[6] = base                           # look back at where the cube was
+    move(back, 2500)
+    time.sleep(1.0)
+    still = nearest_blue(tx, ty)
+    if still and abs(still[2] - tx) < 3 * BASE_TOL + 30 and abs(still[3] - ty) < MISS_DY:
+        say('The cube is still in its old place - the grab missed, trying again')
+        return 'retry'
+    move(arm('look', 'open'), 2500)
+    return 'done'
+
+def reach():
+    missing = [n for n in ['look', 'ready', 'grip', 'drop', 'look_target'] if n not in poses]
+    if missing:
+        print('Not ready. Missing: ' + ', '.join(missing))
+        return
+    stop()                                   # wheels never move in this mode
+    for attempt in range(1, MAX_TRIES + 1):
+        if rospy.is_shutdown():
+            return
+        print('--- Attempt %d of %d ---' % (attempt, MAX_TRIES))
+        result = reach_once()
+        if result == 'done':
+            say('Done: cube placed on the left')
+            return
+        if result == 'wait':
+            time.sleep(3.0)                  # time to move the cube back into reach
+    move(arm('look', 'open'), 2500)
+    say('Gave up after %d attempts' % MAX_TRIES)
 
 # ---------------- teach mode ----------------
 DRIVE_KEYS = {'w': (60.0, 90.0, 0.0), 's': (60.0, 270.0, 0.0), 'a': (60.0, 180.0, 0.0),
@@ -499,7 +620,7 @@ def teach():
 def main():
     global chassis_pub, servo_pub, image_pub, servo_cls, item_cls
     mode = sys.argv[1] if len(sys.argv) > 1 else ''
-    if mode not in ('teach', 'run', 'pick', 'calib', 'fetch'):
+    if mode not in ('teach', 'run', 'pick', 'calib', 'fetch', 'reach'):
         print('Usage: python3 cleanup.py teach | pick | run')
         return
     rospy.init_node('cleanup')
@@ -524,6 +645,9 @@ def main():
         pick_test()
     elif mode == 'calib':
         calib()
+    elif mode == 'reach':
+        print('Arm only: the wheels will not move. Press Ctrl+C to stop.')
+        reach()
     elif mode == 'fetch':
         print('Fetching the blue cube. Press Ctrl+C to stop at any time.')
         fetch()

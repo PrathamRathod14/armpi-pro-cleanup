@@ -202,7 +202,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="hero-text">
     <span class="eyebrow">ArmPi Pro · blue cube fetch</span>
     <h1>Find the blue cube, pick it up, put it on the left</h1>
-    <p class="lede">A Hiwonder ArmPi Pro looks around until its arm camera sees the blue cube, drives to it, picks it up and sets it down to its own left. Other cubes on the table are ignored: the robot steers only by where blue appears in the camera picture.</p>
+    <p class="lede">A Hiwonder ArmPi Pro looks around until its arm camera sees the blue cube, drives to it, picks it up and sets it down to its own left. Other cubes on the table are ignored: the robot steers only by where blue appears in the camera picture. A second mode, <span class="mono">reach</span>, does the same with the arm alone while the wheels stay still.</p>
   </div>
 
   <div class="fig">
@@ -239,7 +239,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <span id="clock" class="time">0 s</span>
     </div>
   </div>
-  <p class="caption">Illustration of the <span class="mono">fetch</span> mode's logic, simulated in the page and played at 4× speed. It is not recorded robot data; <span class="mono">fetch</span> has not yet run on the robot.</p>
+  <p class="caption">Illustration of the <span class="mono">fetch</span> mode's logic, simulated in the page and played at 4× speed. It is not recorded robot data. On the robot, <span class="mono">fetch</span> has driven to the cube in short tests; the battery cut out during longer runs.</p>
 </section>
 
 <!-- ============ WHY HARD ============ -->
@@ -333,13 +333,13 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="section-head">
     <span class="eyebrow">How it works</span>
     <h2>Six steps, from seeing blue to letting go</h2>
-    <p class="lede">All six are in <span class="mono">cleanup.py</span>, run by <span class="mono">python3 ~/cleanup.py fetch</span>. Detection and the arm moves have been seen on the robot; the driving steps have not run yet.</p>
+    <p class="lede">All six are in <span class="mono">cleanup.py</span>, run by <span class="mono">python3 ~/cleanup.py fetch</span>. Detection, calibration and the arm moves work on the robot; driving has run in short tests.</p>
   </div>
   <div class="pipe">
     <article class="stage" tabindex="0"><span class="n">SEE</span><h3>Keep only blue</h3><p>Each picture is converted to hue, saturation and brightness. Pixels in the blue range are kept, specks are removed, and the biggest patch gives the cube's position and size.</p><span class="pill built">seen working</span></article>
-    <article class="stage" tabindex="0"><span class="n">SEARCH</span><h3>Turn and look</h3><p>Arm raised. The robot turns on the spot until blue appears in three pictures in a row. Gives up after 45 seconds.</p><span class="pill untested">written, untested</span></article>
-    <article class="stage" tabindex="0"><span class="n">APPROACH</span><h3>Face it, drive</h3><p>While the cube is far, turn until it is centred, then drive forward with small corrections.</p><span class="pill untested">written, untested</span></article>
-    <article class="stage" tabindex="0"><span class="n">SLIDE IN</span><h3>Onto the spot</h3><p>When close, slide sideways and forward until the cube sits within 20 pixels of the calibrated spot.</p><span class="pill untested">written, untested</span></article>
+    <article class="stage" tabindex="0"><span class="n">SEARCH</span><h3>Turn and look</h3><p>Arm raised. The robot turns on the spot until blue appears in three pictures in a row. Gives up after 45 seconds.</p><span class="pill built">ran on robot</span></article>
+    <article class="stage" tabindex="0"><span class="n">APPROACH</span><h3>Face it, drive</h3><p>While the cube is far, turn until it is centred, then drive forward with small corrections.</p><span class="pill untested">short tests ran</span></article>
+    <article class="stage" tabindex="0"><span class="n">SLIDE IN</span><h3>Onto the spot</h3><p>When close, slide sideways and forward until the cube sits within 20 pixels of the calibrated spot, slowing down as it gets close.</p><span class="pill untested">overshoot fixed, retest</span></article>
     <article class="stage" tabindex="0"><span class="n">PICK</span><h3>Grab and lift</h3><p>Lower to the taught grip position with the gripper open, close on the cube, lift. The wheels stay still.</p><span class="pill next">arm test runs</span></article>
     <article class="stage" tabindex="0"><span class="n">PLACE</span><h3>Set down on the left</h3><p>Swing the arm base left, lower to the floor, open, lift back to the raised pose. Done.</p><span class="pill next">arm test runs</span></article>
   </div>
@@ -414,6 +414,40 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   </div>
 </section>
 
+<!-- ============ APPROACH ============ -->
+<section>
+  <div class="section-head">
+    <span class="eyebrow">The approach</span>
+    <h2>Steer by the picture, replay the grab</h2>
+    <p class="lede">Classical robotics: no machine learning and no 3D model. Four techniques work together.</p>
+  </div>
+  <div class="rules">
+    <div class="rule-card"><h3>1 · Colour detection</h3><p>Each picture is converted to HSV. Pixels whose hue is blue and that are bright and saturated enough are kept, and specks are removed. The remaining patch gives the cube's position and size. Dark navy clothing is excluded by a minimum brightness.</p></div>
+    <div class="rule-card"><h3>2 · Visual servoing</h3><p>The robot never works out the cube's position in centimetres. It compares where the cube appears with a target point in the picture, recorded once by <span class="mono">calib</span> at (366, 449), and moves to shrink that difference about ten times a second until it is within 15–20 pixels.</p></div>
+    <div class="rule-card"><h3>3 · Teach and repeat</h3><p>No inverse kinematics. The Look, Grip and Drop arm positions were taught by hand and are replayed. Because servoing always brings the cube to the same place relative to the gripper, the same grab lands on it.</p></div>
+    <div class="rule-card"><h3>4 · Check and retry</h3><p>After placing, the camera looks back at where the cube was. If it is still there, the grab missed and the robot tries again, up to ten times. A successful grab goes straight to placing, with no extra attempts.</p></div>
+  </div>
+</section>
+
+<!-- ============ MODES ============ -->
+<section>
+  <div class="section-head">
+    <span class="eyebrow">Two ways to run it</span>
+    <h2>Drive to the cube, or reach with the arm alone</h2>
+  </div>
+  <div class="rules">
+    <div class="rule-card"><h3 class="mono">cleanup.py fetch</h3><p>Searches by turning, drives toward the blue cube, slides until it sits on the target point, then grabs and places it on the left. The cube can be anywhere within about a metre. Floor only.</p><span class="pill untested">short tests ran</span></div>
+    <div class="rule-card"><h3 class="mono">cleanup.py reach</h3><p>The wheels never move. The arm base turns until the cube is lined up, then the arm grabs, places it on the left and checks. The cube can be to the left or right, but must be at the calibrated distance. Safe on a table.</p><span class="pill untested">lines up; grab offset being tuned</span></div>
+  </div>
+  <div class="metrics">
+    <span class="metric"><b>BASE_TRIM</b> shifts the grab sideways</span>
+    <span class="metric"><b>REACH_DY</b> how far from the taught distance is accepted</span>
+    <span class="metric"><b>BASE_GAIN</b> size of each arm-turn step</span>
+    <span class="metric"><b>LOOK_TOL</b> how close counts as on the spot</span>
+    <span class="metric"><b>Grip value</b> 448; about 480 if the cube slips</span>
+  </div>
+</section>
+
 <!-- ============ TEACH ============ -->
 <section>
   <div class="section-head">
@@ -426,7 +460,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <article class="tile"><div class="teach-top"><span class="key">3</span><span class="pill built">saved</span></div><h3>Grip pose</h3><p>Grabbing height, and how far the gripper closes on the cube (448).</p></article>
     <article class="tile"><div class="teach-top"><span class="key">4</span><span class="pill built">saved</span></div><h3>Drop pose</h3><p>Arm base turned left (84), lowered until the cube rests on the floor.</p></article>
     <article class="tile"><div class="teach-top"><span class="key">2</span><span class="pill built">set</span></div><h3>Open value</h3><p>How wide the gripper opens before grabbing: 200, since low means open on this robot.</p></article>
-    <article class="tile"><div class="teach-top"><span class="key mono" style="width:auto;padding:0 6px">calib</span><span class="pill missing">to do</span></div><h3>Target spot</h3><p>Where the cube appears in the raised camera's picture when it sits exactly at the grabbing position.</p></article>
+    <article class="tile"><div class="teach-top"><span class="key mono" style="width:auto;padding:0 6px">calib</span><span class="pill built">saved</span></div><h3>Target spot</h3><p>Where the cube appears in the raised camera's picture when it sits exactly at the grabbing position: (366, 449).</p></article>
   </div>
 </section>
 
@@ -480,22 +514,23 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <p><code>python3 ~/cleanup.py pick</code> runs through every move. It does not look for the cube, so it reports "No object seen" by design.</p>
       <p class="done"><b>Done when</b> a cube placed by hand at the grab spot is lifted and set down on the left, 5 times out of 5.</p>
     </article>
-    <article class="task now">
-      <div class="task-top"><span class="num">4</span><span class="pill next">next</span></div>
+    <article class="task">
+      <div class="task-top"><span class="num">4</span><span class="pill built">done</span></div>
       <h3>See the detection work</h3>
       <p>Run <code>python3 ~/detect_objects.py</code> with the clean-up camera view open. Move the blue cube around; take it away.</p>
+      <p>Blue, red and the wooden cube behaved as expected. Dark-blue clothing was also seen as blue; a higher minimum brightness now excludes it.</p>
       <p class="done"><b>Done when</b> blue always has a rectangle, its numbers follow the cube, and red and wood get none.</p>
     </article>
     <article class="task">
-      <div class="task-top"><span class="num">5</span><span class="pill later">then</span></div>
+      <div class="task-top"><span class="num">5</span><span class="pill built">done</span></div>
       <h3>Calibrate the target spot</h3>
       <p>Apply the fetch patch, run <code>python3 ~/cleanup.py calib</code>, and put the cube at the grab spot when asked. If the raised camera cannot see that spot, tilt the wrist down and save Look again.</p>
       <p class="done"><b>Done when</b> it prints <code>Saved LOOK TARGET</code>.</p>
     </article>
-    <article class="task">
-      <div class="task-top"><span class="num">6</span><span class="pill later">then</span></div>
-      <h3>Fetch, cube straight ahead</h3>
-      <p>On the floor, cube 50 cm ahead: <code>python3 ~/cleanup.py fetch</code>.</p>
+    <article class="task now">
+      <div class="task-top"><span class="num">6</span><span class="pill next">in progress</span></div>
+      <h3>Fetch and reach, cube close by</h3>
+      <p><code>fetch</code> on the floor drove to the cube and slightly overshot; the battery reset the robot during longer runs (6.2 V measured). Arm-only <code>reach</code> lines the arm up, and the grab lands slightly off, tuned with <code>BASE_TRIM</code>.</p>
       <div class="try"><span class="try-label">Settings likely to need tuning</span><span class="chip">TURN_SIGN</span><span class="chip">FLIP_X</span><span class="chip">LOOK_TOL</span><span class="chip">TURN_RATE</span><span class="chip">FINE_SPEED</span></div>
       <p class="done"><b>Done when</b> the cube ends up on the left with no help, 3 runs in a row.</p>
     </article>
@@ -509,7 +544,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <div class="task-top"><span class="num">8</span><span class="pill later">later</span></div>
       <h3>Make it robust</h3>
       <p>Fix the weak spots found in tasks 6 and 7.</p>
-      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">grab check</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
+      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">near and far grip poses</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
       <p class="done"><b>Done when</b> ten runs in a row need no help.</p>
     </article>
   </div>
@@ -531,7 +566,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   </div>
 </section>
 
-<footer>ArmPi Pro blue cube fetch · status 13 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour; <span class="mono">fetch</span> has not yet run on the robot.</footer>
+<footer>ArmPi Pro blue cube fetch · status 13 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour, not recorded robot data.</footer>
 </main>
 
 <script>
