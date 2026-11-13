@@ -1,12 +1,11 @@
 # ArmPi Pro clean-up robot
 
-A Hiwonder ArmPi Pro finds small coloured objects on the floor (a red container, a yellow
-container and a pink highlighter), drives to each one, picks it up and places it on the
+A Hiwonder ArmPi Pro finds a blue cube, drives to it, picks it up and places it on the
 floor to its own left. It uses only the camera on its arm.
 
 **Status:** keyboard driving, arm control, camera view and teach mode work on the robot.
-Colour detection has been seen working for red and pink. The autonomous run
-(`cleanup.py run`) has never been run on the robot yet.
+Colour detection works for red and blue cubes. The arm-only pick test runs. The
+autonomous `fetch` mode has not been run on the robot yet.
 
 ## Robot
 
@@ -22,7 +21,8 @@ Colour detection has been seen working for red and pink. The autonomous run
 
 | Path | Purpose |
 |---|---|
-| `robot/cleanup.py` | The clean-up program: colour detection, search, approach, line-up, pick, place on the left, and teach mode |
+| `robot/cleanup.py` | The clean-up program: colour detection, teach mode, arm-only pick test, calibration, and the autonomous fetch |
+| `robot/patch_fetch.py` | Adds the `calib` and `fetch` modes to an older `cleanup.py` already on the robot |
 | `robot/teleop_keys.py` | Keyboard control of wheels, arm and gripper, with a saved home pose |
 | `robot/detect_objects.py` | Colour detection only, no movement; useful for tuning colour ranges |
 | `robot/wifi.yaml.example` | Template for the robot's Wi-Fi settings (`/etc/Hiwonder/wifi.yaml`) |
@@ -62,8 +62,14 @@ scp robot/cleanup.py robot/teleop_keys.py robot/detect_objects.py ubuntu@ubuntu.
 ```bash
 python3 ~/teleop_keys.py        # drive by keyboard
 python3 ~/cleanup.py teach      # teach the arm positions
-python3 ~/cleanup.py run        # autonomous clean-up (Ctrl+C stops it)
+python3 ~/cleanup.py pick       # arm only: grab the cube under the gripper, place it left
+python3 ~/cleanup.py calib      # once: record where the cube appears when it is in grabbing position
+python3 ~/cleanup.py fetch      # find the blue cube, drive to it, pick it up, place it left
+python3 ~/cleanup.py run        # older multi-object loop (Ctrl+C stops any mode)
 ```
+
+`fetch` and `run` drive the robot: use them on the floor, never on a table.
+On this robot a low gripper value means open (about 200) and a high value means closed.
 
 Camera views in the laptop browser:
 

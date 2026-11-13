@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Clean-up robot for the ArmPi Pro.
 #   python3 cleanup.py teach   -> record arm poses and reference points
+#   python3 cleanup.py pick    -> arm-only test: pick the object at the gripper, place it left
 #   python3 cleanup.py run     -> find objects, pick them up, place them on the robot's left
 import sys, os, json, math, time, select, termios, tty, signal, threading
 import numpy as np
@@ -15,7 +16,7 @@ CAM_TOPIC = '/usb_cam/image_raw/compressed'
 POSE_FILE = os.path.expanduser('~/cleanup_poses.json')
 
 # ---------------- settings you may need to tune ----------------
-OBJECT_COLOURS = ['red', 'pink', 'yellow']
+OBJECT_COLOURS = ['blue']
 BOX_COLOUR = 'black'        # or 'green' / 'blue' if you wrap the holder in coloured paper
 COLOURS = {                 # HSV ranges, hue 0-179
     'red':    [((0, 120, 70), (8, 255, 255)), ((174, 120, 70), (179, 255, 255))],
@@ -25,7 +26,7 @@ COLOURS = {                 # HSV ranges, hue 0-179
     'blue':   [((95, 110, 60), (130, 255, 255))],
     'black':  [((0, 0, 0), (179, 255, 60))],
 }
-MIN_OBJ_AREA = 500          # smallest object blob, in pixels
+MIN_OBJ_AREA = 250          # smallest object blob, in pixels
 MIN_BOX_AREA = 2500         # smallest box blob, in pixels
 BOX_IGNORE_BELOW = 0.80     # ignore the bottom of the image when looking for the box (gripper is there)
 DRIVE_SPEED = 70.0          # mm/s when approaching
@@ -39,7 +40,8 @@ FINE_TOL = 18               # final line-up tolerance in pixels
 SEARCH_TIME = 45            # seconds of rotating before giving up
 # ----------------------------------------------------------------
 
-DRAW = {'red': (0, 0, 255), 'pink': (180, 105, 255), 'yellow': (0, 255, 255), 'box': (255, 255, 255)}
+DRAW = {'red': (0, 0, 255), 'pink': (180, 105, 255), 'yellow': (0, 255, 255), 'box': (255, 255, 255),
+        'blue': (255, 0, 0), 'green': (0, 255, 0)}
 POSE_NAMES = ['look', 'ready', 'grip', 'drop']
 lock = threading.Lock()
 latest = {'t': 0.0, 'objects': [], 'box': None, 'size': (640, 480)}
@@ -258,6 +260,130 @@ def run():
     move(arm('look', 'open'), 1500)
     say('Finished. Objects moved: %d' % count)
 
+def pick_test():
+    missing = [n for n in ['look', 'ready', 'grip', 'drop'] if n not in poses]
+    if missing:
+        print('Not ready. Teach these first: ' + ', '.join(missing))
+        return
+    say('Moving to READY')
+    move(arm('ready', 'open'), 2000)
+    time.sleep(1.0)
+    seen = target(view(), 'object')
+    if seen:
+        print('Object seen: %s at (%d, %d). Saved grab spot: %s' % (seen[1], seen[2], seen[3], poses.get('grab_spot')))
+    else:
+        print('No object seen - continuing anyway')
+    say('Picking up')
+    move(arm('grip', 'open'), 2000)
+    move({1: poses['grip'][1]}, 1000)
+    move(arm('look', 'closed'), 2500)
+    say('Placing on the left')
+    move({6: poses['drop'][6]}, 2500)
+    move(arm('drop', 'closed'), 2500)
+    move({1: poses['ready'][1]}, 1000)
+    up = arm('look', 'open')
+    up[6] = poses['drop'][6]
+    move(up, 2500)
+    move(arm('look', 'open'), 2500)
+    say('Pick test finished')
+
+LOOK_TOL = 20               # pixels: how close to the taught spot counts as arrived
+
+def calib():
+    if 'look' not in poses:
+        print('Teach the LOOK pose first.')
+        return
+    move(arm('look', 'open'), 2500)
+    time.sleep(1.0)
+    input('Put the blue cube exactly where the gripper picks it up (the pick-test spot), then press Enter: ')
+    pts = []
+    t0 = time.time()
+    while time.time() - t0 < 1.5:
+        tgt = target(view(), 'object')
+        if tgt:
+            pts.append((tgt[2], tgt[3]))
+        time.sleep(0.1)
+    if len(pts) < 5:
+        print('Cube not seen from the LOOK pose. In teach mode tilt the wrist down a little, save LOOK (key 1), then run calib again.')
+        return
+    xs = sorted(q[0] for q in pts)
+    ys = sorted(q[1] for q in pts)
+    poses['look_target'] = [xs[len(xs) // 2], ys[len(ys) // 2]]
+    save_poses()
+    print('Saved LOOK TARGET at %s' % poses['look_target'])
+
+def go_to_cube():
+    say('Driving to the cube')
+    tx, ty = poses['look_target']
+    t0 = lost = time.time()
+    ok = 0
+    while not rospy.is_shutdown() and time.time() - t0 < 90:
+        v = view()
+        tgt = target(v, 'object')
+        if not tgt:
+            stop()
+            if time.time() - lost > 2.0:
+                return False
+            time.sleep(0.1)
+            continue
+        lost = time.time()
+        w, h = v['size']
+        dx, dy = tgt[2] - tx, ty - tgt[3]      # dx > 0: cube right of the spot; dy > 0: cube further away
+        if FLIP_X:
+            dx = -dx
+        if abs(dx) < LOOK_TOL and abs(dy) < LOOK_TOL:
+            stop()
+            ok += 1
+            if ok >= 3:
+                return True
+            time.sleep(0.1)
+            continue
+        ok = 0
+        if dy > 0.25 * h:                       # far away: turn to face it, then drive
+            ex = dx / (w / 2.0)
+            if abs(ex) > CENTRE_TOL:
+                drive(0, 90, -TURN_SIGN * TURN_RATE * (1 if ex > 0 else -1))
+            else:
+                drive(DRIVE_SPEED, 90, -TURN_SIGN * TURN_RATE * ex)
+        else:                                   # close: slide straight onto the spot
+            drive(FINE_SPEED, math.degrees(math.atan2(dy, dx)) % 360, 0)
+        time.sleep(0.1)
+    stop()
+    return False
+
+def pick_and_place():
+    say('Picking up')
+    move(arm('grip', 'open'), 2000)
+    move({1: poses['grip'][1]}, 1000)
+    move(arm('look', 'closed'), 2500)
+    say('Placing on the left')
+    move({6: poses['drop'][6]}, 2500)
+    move(arm('drop', 'closed'), 2500)
+    move({1: poses['ready'][1]}, 1000)
+    up = arm('look', 'open')
+    up[6] = poses['drop'][6]
+    move(up, 2500)
+    move(arm('look', 'open'), 2500)
+
+def fetch():
+    missing = [n for n in ['look', 'ready', 'grip', 'drop', 'look_target'] if n not in poses]
+    if missing:
+        print('Not ready. Missing: ' + ', '.join(missing) + '   (look_target comes from: python3 cleanup.py calib)')
+        return
+    move(arm('look', 'open'), 2500)
+    time.sleep(0.5)
+    for attempt in range(3):
+        if not search('object'):
+            break
+        if go_to_cube():
+            pick_and_place()
+            stop()
+            say('Done: cube placed on the left')
+            return
+        print('Lost the cube - searching again')
+    stop()
+    say('Could not reach the cube')
+
 # ---------------- teach mode ----------------
 DRIVE_KEYS = {'w': (60.0, 90.0, 0.0), 's': (60.0, 270.0, 0.0), 'a': (60.0, 180.0, 0.0),
               'd': (60.0, 0.0, 0.0), 'q': (0.0, 90.0, 0.3), 'e': (0.0, 90.0, -0.3)}
@@ -373,8 +499,8 @@ def teach():
 def main():
     global chassis_pub, servo_pub, image_pub, servo_cls, item_cls
     mode = sys.argv[1] if len(sys.argv) > 1 else ''
-    if mode not in ('teach', 'run'):
-        print('Usage: python3 cleanup.py teach    or    python3 cleanup.py run')
+    if mode not in ('teach', 'run', 'pick', 'calib', 'fetch'):
+        print('Usage: python3 cleanup.py teach | pick | run')
         return
     rospy.init_node('cleanup')
     chassis_cls = rostopic.get_topic_class(CHASSIS_TOPIC)[0]
@@ -394,6 +520,13 @@ def main():
     print('Camera view: http://ubuntu.local:8080/stream_viewer?topic=/cleanup/image')
     if mode == 'teach':
         teach()
+    elif mode == 'pick':
+        pick_test()
+    elif mode == 'calib':
+        calib()
+    elif mode == 'fetch':
+        print('Fetching the blue cube. Press Ctrl+C to stop at any time.')
+        fetch()
     else:
         print('Running. Press Ctrl+C to stop at any time.')
         run()
