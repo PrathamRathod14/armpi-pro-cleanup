@@ -202,7 +202,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="hero-text">
     <span class="eyebrow">ArmPi Pro · blue cube fetch</span>
     <h1>Find the blue cube, pick it up, put it on the left</h1>
-    <p class="lede">A Hiwonder ArmPi Pro looks around until its arm camera sees the blue cube, drives to it, picks it up and sets it down to its own left. Other cubes on the table are ignored: the robot steers only by where blue appears in the camera picture. A second mode, <span class="mono">reach</span>, does the same with the arm alone while the wheels stay still.</p>
+    <p class="lede">A Hiwonder ArmPi Pro looks around until its arm camera sees the blue cube, drives to it, picks it up and sets it down to its own left. Other cubes on the table are ignored: the robot steers only by where blue appears in the camera picture. The arm is placed over the cube with inverse kinematics, so it can grab the cube wherever it lies within reach; an arm-only mode keeps the wheels still.</p>
   </div>
 
   <div class="fig">
@@ -418,33 +418,33 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 <section>
   <div class="section-head">
     <span class="eyebrow">The approach</span>
-    <h2>Steer by the picture, replay the grab</h2>
-    <p class="lede">Classical robotics: no machine learning and no 3D model. Four techniques work together.</p>
+    <h2>See the cube, then let the arm maths put the gripper on it</h2>
+    <p class="lede">Built on the robot's own inverse kinematics from Hiwonder's intelligent-grasp demo. No machine learning: colour vision plus a closed feedback loop.</p>
   </div>
   <div class="rules">
-    <div class="rule-card"><h3>1 · Colour detection</h3><p>Each picture is converted to HSV. Pixels whose hue is blue and that are bright and saturated enough are kept, and specks are removed. The remaining patch gives the cube's position and size. Dark navy clothing is excluded by a minimum brightness.</p></div>
-    <div class="rule-card"><h3>2 · Visual servoing</h3><p>The robot never works out the cube's position in centimetres. It compares where the cube appears with a target point in the picture, recorded once by <span class="mono">calib</span> at (366, 449), and moves to shrink that difference about ten times a second until it is within 15–20 pixels.</p></div>
-    <div class="rule-card"><h3>3 · Teach and repeat</h3><p>No inverse kinematics. The Look, Grip and Drop arm positions were taught by hand and are replayed. Because servoing always brings the cube to the same place relative to the gripper, the same grab lands on it.</p></div>
-    <div class="rule-card"><h3>4 · Check and retry</h3><p>After placing, the camera looks back at where the cube was. If it is still there, the grab missed and the robot tries again, up to ten times. A successful grab goes straight to placing, with no extra attempts.</p></div>
+    <div class="rule-card"><h3>1 · Find the cube by colour and shape</h3><p>Each picture is converted to HSV and blue pixels are kept (bright enough to exclude navy clothing). A patch only counts as the cube if it is solid, fills its box and is not long and thin, and it must be seen in three pictures in a row. Its centre point comes from image moments.</p></div>
+    <div class="rule-card"><h3>2 · Point the gripper straight down</h3><p>Inverse kinematics puts the gripper vertically above the table, 3 cm up. The camera on the gripper now looks at the table directly below, so the cube's position in the picture tells how far the gripper is from it.</p></div>
+    <div class="rule-card"><h3>3 · Chase the cube with IK</h3><p>About ten times a second: cube left or right of the target point (320, 410) turns the base; cube ahead or behind changes the reach, from 12 to 25 cm, and IK recomputes the shoulder, elbow and wrist angles. It keeps following the same cube, not whatever is biggest.</p></div>
+    <div class="rule-card"><h3>4 · Grab, place, check</h3><p>When the cube has stayed on the target point for ten pictures, IK lowers the gripper straight down and it closes. The cube goes to the taught drop position on the left. The camera then looks back: if the cube is still there, it tries again, up to eight times.</p></div>
   </div>
 </section>
 
 <!-- ============ MODES ============ -->
 <section>
   <div class="section-head">
-    <span class="eyebrow">Two ways to run it</span>
-    <h2>Drive to the cube, or reach with the arm alone</h2>
+    <span class="eyebrow">How to run it</span>
+    <h2>Arm only now, driving later</h2>
   </div>
   <div class="rules">
-    <div class="rule-card"><h3 class="mono">cleanup.py fetch</h3><p>Searches by turning, drives toward the blue cube, slides until it sits on the target point, then grabs and places it on the left. The cube can be anywhere within about a metre. Floor only.</p><span class="pill untested">short tests ran</span></div>
-    <div class="rule-card"><h3 class="mono">cleanup.py reach</h3><p>The wheels never move. The arm base turns until the cube is lined up, then the arm grabs, places it on the left and checks. The cube can be to the left or right, but must be at the calibrated distance. Safe on a table.</p><span class="pill untested">lines up; grab offset being tuned</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py arm</h3><p>The wheels never move. The arm looks around in front of the robot, places the gripper over the cube with IK, grabs it and puts it on the left. If the cube is out of the arm's reach it asks you to move it. Safe on a table. <b>This is the current step.</b></p><span class="pill next">next to test</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py</h3><p>The full version. The robot turns to find the cube anywhere around it, drives up to it, then does the same IK grab, creeping the wheels if the cube is just out of reach. Floor only.</p><span class="pill later">after arm-only works</span></div>
   </div>
   <div class="metrics">
-    <span class="metric"><b>BASE_TRIM</b> shifts the grab sideways</span>
-    <span class="metric"><b>REACH_DY</b> how far from the taught distance is accepted</span>
-    <span class="metric"><b>BASE_GAIN</b> size of each arm-turn step</span>
-    <span class="metric"><b>LOOK_TOL</b> how close counts as on the spot</span>
-    <span class="metric"><b>Grip value</b> 448; about 480 if the cube slips</span>
+    <span class="metric"><b>SLOW</b> 2 = half speed, 3 = a third</span>
+    <span class="metric"><b>MIN_AREA</b> smaller sees the cube from farther away</span>
+    <span class="metric"><b>MIN_SOLIDITY</b> higher rejects more look-alikes</span>
+    <span class="metric"><b>GRIP_CLOSE</b> 450; higher grips tighter</span>
+    <span class="metric"><b>GRAB_Z</b> how low the gripper goes</span>
   </div>
 </section>
 
@@ -529,8 +529,8 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     </article>
     <article class="task now">
       <div class="task-top"><span class="num">6</span><span class="pill next">in progress</span></div>
-      <h3>Fetch and reach, cube close by</h3>
-      <p><code>fetch</code> on the floor drove to the cube and slightly overshot; the battery reset the robot during longer runs (6.2 V measured). Arm-only <code>reach</code> lines the arm up, and the grab lands slightly off, tuned with <code>BASE_TRIM</code>.</p>
+      <h3>IK grab, arm only, then with driving</h3>
+      <p>Taught-position grabbing landed slightly off and only worked at one distance, so the grab now uses inverse kinematics (<code>fetch_blue.py</code>). First run it arm-only with <code>python3 ~/fetch_blue.py arm</code>, then with driving on the floor. Battery is charged (8.0 V).</p>
       <div class="try"><span class="try-label">Settings likely to need tuning</span><span class="chip">TURN_SIGN</span><span class="chip">FLIP_X</span><span class="chip">LOOK_TOL</span><span class="chip">TURN_RATE</span><span class="chip">FINE_SPEED</span></div>
       <p class="done"><b>Done when</b> the cube ends up on the left with no help, 3 runs in a row.</p>
     </article>
@@ -544,7 +544,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <div class="task-top"><span class="num">8</span><span class="pill later">later</span></div>
       <h3>Make it robust</h3>
       <p>Fix the weak spots found in tasks 6 and 7.</p>
-      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">near and far grip poses</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
+      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">grab other colours or objects</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
       <p class="done"><b>Done when</b> ten runs in a row need no help.</p>
     </article>
   </div>

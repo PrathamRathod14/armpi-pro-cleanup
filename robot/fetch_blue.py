@@ -3,7 +3,7 @@
 # inverse kinematics, and place it on the robot's left. Retries until it succeeds.
 #   python3 ~/fetch_blue.py          Stop: Ctrl+C (the wheels stop)
 # Needs the taught LOOK and DROP poses in ~/cleanup_poses.json.
-import os, json, time, threading, signal
+import os, sys, json, time, threading, signal
 import numpy as np
 import cv2
 import rospy
@@ -41,6 +41,7 @@ STABLE_FRAMES = 10
 SLOW = 2.0                 # 1 = fast, 2 = half speed
 TRACK_MS = 120
 MAX_TRIES = 8
+ARM_ONLY = len(sys.argv) > 1 and sys.argv[1] == 'arm'   # 'python3 fetch_blue.py arm': the wheels never move
 POSE_FILE = os.path.expanduser('~/cleanup_poses.json')
 SCAN = [(500, 0.15), (400, 0.15), (600, 0.15), (500, 0.22), (400, 0.22), (600, 0.22)]
 # ---------------------------------------
@@ -151,6 +152,8 @@ def pause(sec):
 
 
 def drive(vel, direction, angular):
+    if ARM_ONLY and (vel or angular):
+        return                               # arm-only mode: never move the wheels
     chassis_pub.publish(float(vel), float(direction), float(angular))
 
 
@@ -313,11 +316,19 @@ def line_up():
             if result == 'ok':
                 return data
         if result == 'far':
-            say('Cube a little too far for the arm - creeping forward')
-            nudge(90)
+            if ARM_ONLY:
+                say('Cube too far for the arm - move it a little closer')
+                time.sleep(4)
+            else:
+                say('Cube a little too far for the arm - creeping forward')
+                nudge(90)
         elif result == 'near':
-            say('Cube too close for the arm - backing up a little')
-            nudge(270)
+            if ARM_ONLY:
+                say('Cube too close for the arm - move it a little away')
+                time.sleep(4)
+            else:
+                say('Cube too close for the arm - backing up a little')
+                nudge(270)
         else:
             return None
     return None
@@ -386,17 +397,21 @@ def main():
         print('No camera pictures - is the camera running?')
         return
     print('Camera view: http://ubuntu.local:8080/stream_viewer?topic=/cleanup/image')
-    print('This mode DRIVES. Use it on the floor. Press Ctrl+C to stop.')
+    if ARM_ONLY:
+        print('Arm only: the wheels will not move. Put the cube 12-25 cm in front. Ctrl+C stops.')
+    else:
+        print('This mode DRIVES. Use it on the floor. Press Ctrl+C to stop.')
     for attempt in range(1, MAX_TRIES + 1):
         if rospy.is_shutdown():
             return
         print('--- Attempt %d of %d ---' % (attempt, MAX_TRIES))
-        arm_look()
-        if not visible() and not search():
-            say('No blue cube found anywhere around the robot')
-            return
-        if not approach():
-            continue
+        if not ARM_ONLY:
+            arm_look()
+            if not visible() and not search():
+                say('No blue cube found anywhere around the robot')
+                return
+            if not approach():
+                continue
         above = line_up()
         if not above:
             continue
