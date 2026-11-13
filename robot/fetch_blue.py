@@ -50,6 +50,11 @@ SLOW = 2.0                 # 1 = fast, 2 = half speed
 TRACK_MS = 120
 MAX_TRIES = 8
 POSE_FILE = os.path.expanduser('~/cleanup_poses.json')
+WRIST_ALIGN = True         # turn the gripper to match the cube's sides before grabbing
+WRIST_SIGN = 1             # reversed automatically if turning the wrist makes it worse
+WRIST_UNITS_PER_DEG = 1000 / 240.0
+GRIP_EXTRA = 25            # second, firmer squeeze after the first close
+LIFT_FIRST = 0.04          # lift straight up this far (metres) before swinging away
 SCAN = [(500, 0.15), (400, 0.15), (600, 0.15), (500, 0.22), (400, 0.22), (600, 0.22)]
 # -------------------------------------
 
@@ -85,7 +90,9 @@ def blobs_in(hsv, rng, min_area, shape_check):
         elif aspect > 4:
             continue
         m = cv2.moments(c)
-        out.append((m['m10'] / m['m00'], m['m01'] / m['m00'], a, (x, y, bw, bh)))
+        ang = cv2.minAreaRect(c)[2] % 90.0
+        ang = ang - 90.0 if ang > 45.0 else ang          # -45..45 degrees: how far the sides are turned
+        out.append((m['m10'] / m['m00'], m['m01'] / m['m00'], a, (x, y, bw, bh), ang))
     out.sort(key=lambda b: -b[2])
     return out
 
@@ -139,7 +146,7 @@ class Tracker(object):
     near its last position, smooths the position, and rides through short dropouts."""
 
     def __init__(self):
-        self.pos, self.missed, self.fresh = None, 0, 0
+        self.pos, self.missed, self.fresh, self.angle = None, 0, 0, 0.0
 
     def update(self, strict, loose):
         cand = None
@@ -158,6 +165,7 @@ class Tracker(object):
                             self.pos[1] + SMOOTH * (cand[1] - self.pos[1]))
             self.missed = 0
             self.fresh += 1
+            self.angle = cand[4]
             return self.pos, True
         if self.pos is not None:
             self.missed += 1
@@ -359,20 +367,57 @@ def line_up():
     return None
 
 
+def measure_angle(frames=8):
+    tr, seq, angles = Tracker(), latest['seq'], []
+    for _ in range(frames * 2):
+        seq, strict, loose, _ = next_frame(seq)
+        pos, fresh = tr.update(strict, loose)
+        if fresh:
+            angles.append(tr.angle)
+        if len(angles) >= frames:
+            break
+    return sorted(angles)[len(angles) // 2] if angles else None
+
+
+def align_wrist():
+    """Turn the gripper so its fingers close on two flat sides of the cube, not on its corners."""
+    global WRIST_SIGN
+    ang = measure_angle()
+    if ang is None or abs(ang) < 4:
+        return 500
+    say('Turning the gripper %.0f degrees to match the cube' % ang)
+    wrist = int(clamp(500 + WRIST_SIGN * ang * WRIST_UNITS_PER_DEG, 300, 700))
+    servos(500, ((2, wrist),))
+    pause(0.8)
+    after = measure_angle()
+    if after is not None and abs(after) > abs(ang):            # turned the wrong way
+        WRIST_SIGN = -WRIST_SIGN
+        wrist = int(clamp(500 + WRIST_SIGN * ang * WRIST_UNITS_PER_DEG, 300, 700))
+        servos(500, ((2, wrist),))
+        pause(0.8)
+        after = measure_angle()
+    print('  cube sides now at %s degrees (wrist %d)' % ('?' if after is None else '%.0f' % after, wrist))
+    return wrist
+
+
 # ---------------- 3. grab, place, check ----------------
-def grab(base, reach, pitch):
+def grab(base, reach, pitch, wrist=500):
     say('Grabbing')
     offset = -0.04 + (pitch + 180) * (0.07 / 30.0)   # Hiwonder's reach correction
     buzzer_pub.publish(0.1)
     servos(500, ((1, GRIP_OPEN),))
     pause(0.5)
-    if not ik_move(reach + offset, GRAB_Z, base, 1000):
+    if not ik_move(reach + offset, GRAB_Z, base, 1000, extra=((2, wrist),)):
         say('Cube is out of reach')
         return False
     pause(1.5)
     servos(500, ((1, GRIP_CLOSE),))
     pause(0.8)
-    servos(1500, ((1, GRIP_CLOSE), (2, 500), (3, 80), (4, 825), (5, 625), (6, 500)))   # lift
+    servos(300, ((1, GRIP_CLOSE + GRIP_EXTRA),))         # second squeeze to seat the cube
+    pause(0.5)
+    ik_move(reach + offset, GRAB_Z + LIFT_FIRST, base, 800, extra=((2, wrist),))   # lift straight up first
+    pause(1.0)
+    servos(1500, ((1, GRIP_CLOSE + GRIP_EXTRA), (2, 500), (3, 80), (4, 825), (5, 625), (6, 500)))   # carry
     pause(1.6)
     return True
 
@@ -464,7 +509,14 @@ def main():
         if not above:
             continue
         base, reach, pitch = above
-        if not grab(base, reach, pitch):
+        wrist = 500
+        if WRIST_ALIGN:
+            wrist = align_wrist()
+            if wrist != 500:                                  # re-centre after turning the wrist
+                res, data = track(base, reach)
+                if res == 'ok':
+                    base, reach, pitch = data
+        if not grab(base, reach, pitch, wrist):
             continue
         place_left()
         if still_there(base, reach):
