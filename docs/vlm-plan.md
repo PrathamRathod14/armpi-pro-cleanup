@@ -98,6 +98,15 @@ YOLO-World's ~220 ms per picture.
 
 Done when: it runs for 5 minutes without stopping, and the box follows the cube when moved by hand.
 
+**Results so far (13 November 2026): stability passed, tracking not yet tested.**
+
+- Downloading the next picture in the background while detecting doubled the speed (2 -> 4 per second).
+- 5-minute run: 1000 pictures, no crash, every result sent to the robot, 2.6–4.7 pictures per second
+  (average 289 ms per picture), result reaching the robot about 0.5–0.7 s after the picture was taken.
+- The blue cube was not on the table during the run, so "box follows the cube" is still to be tested.
+- No false detections in 1000 pictures, even with the laptop (with a small blue sticker), a person
+  and dark-blue clothing in view.
+
 ### Phase 4 — Robot `vlm` mode in `fetch_blue.py`
 
 1. `python3 ~/fetch_blue.py vlm` (arm only, like `arm`) subscribes to `/vlm/target`.
