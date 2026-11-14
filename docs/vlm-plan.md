@@ -174,3 +174,17 @@ Record per test: grabbed (yes/no), wrong object (yes/no), time to grab, laptop p
 | Phase 3 | Write and run the bridge | Move the cube around while it runs |
 | Phase 4 | Write the robot code | Paste it onto the robot, run arm-only tests |
 | Phase 5 | Collect results | Set up each test scene |
+
+## Second camera: ACEBOTT QD003 AI vision module (found 14 November 2026)
+
+- The module is a Kendryte K210 board running CanMV (MicroPython) with a GC2145 camera sensor
+  and its own small screen. It is **not** a USB webcam: over USB it appears only as a serial port
+  (CH340 / "QinHeng HL-340", ID 1a86:7523), never as `/dev/video*`.
+- On the robot it is `/dev/ttyUSB0`. Confirmed by resetting it over that port and reading its
+  startup messages (`[CANMV] ... find gc2145`).
+- The robot's arm servos use `/dev/ttyS0` (the Pi's own serial pins), not USB, so the module
+  does not conflict with them and can be plugged in at any time, in any USB-A port.
+- The screen works on any USB power; the robot only sees the module when the cable and port carry data.
+- Not used yet. Options for later: (A) a CanMV script on the module finds the object itself and
+  sends its position over serial; (B) the module sends compressed pictures over serial as a second
+  view for YOLO-World; (C) use a standard USB webcam instead.
