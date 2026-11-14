@@ -106,6 +106,13 @@ Done when: it runs for 5 minutes without stopping, and the box follows the cube 
 - The blue cube was not on the table during the run, so "box follows the cube" is still to be tested.
 - No false detections in 1000 pictures, even with the laptop (with a small blue sticker), a person
   and dark-blue clothing in view.
+- 90-second run with the cube on the table (prompt "blue square", also naming "hand", threshold 0.08):
+  **found in 315 of 315 pictures (100%)**, confidence 0.23–0.45, position steady at (265, 388),
+  3.5–4.1 pictures per second, result reaching the robot 0.5–0.6 s after the picture.
+  The cube stayed in one place during the run, so following a moving cube is still untested;
+  the robot's own tracker (phase 4) handles motion between laptop updates.
+- While a hand held the cube, confidence dropped to 0.08–0.10: the grab should happen with
+  hands away from the cube.
 
 ### Phase 4 — Robot `vlm` mode in `fetch_blue.py`
 
