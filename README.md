@@ -9,6 +9,11 @@ kinematics, turns the wrist to match the cube's sides, grabs it and places it on
 Arm-only mode (`fetch_blue.py arm`) runs on the robot: detection is stable and the grab works,
 but not every time yet. The driving mode has not been tested with the IK grab.
 
+Laptop vision: a YOLO-World model on the laptop (`vlm/vlm_bridge.py`) finds the object by name
+and sends its position to the robot, where `fetch_blue.py vlm` grabs it. Phases 1–3 (model,
+connection, bridge) work; the robot grab with it is written but not yet tested on the robot.
+See `docs/vlm-plan.md`.
+
 ## Robot
 
 | Part | Details |
@@ -24,6 +29,9 @@ but not every time yet. The driving mode has not been tested with the IK grab.
 | Path | Purpose |
 |---|---|
 | `robot/fetch_blue.py` | **Main program.** Stable blue detection, IK line-up, wrist alignment, grab, place left, retry. Modes: `look` (detection test), `arm` (wheels never move), no argument (search and drive) |
+| `vlm/vlm_bridge.py` | Laptop: fetches robot camera pictures, finds the named object with YOLO-World, sends its position to the robot on `/vlm/target` |
+| `vlm/benchmark.py`, `vlm/phase2_test.py` | Laptop: model speed test, and robot connection test |
+| `docs/vlm-plan.md` | Laptop vision plan with the results of each phase |
 | `robot/grasp_ik.py` | Earlier IK grab (arm only), kept for reference |
 | `robot/grasp_black.py` | Same IK grab looking for a dark object (the black cap test) |
 | `robot/cleanup.py` | The clean-up program: colour detection, teach mode, arm-only pick test, calibration, and the autonomous fetch |
@@ -68,6 +76,16 @@ scp robot/cleanup.py robot/teleop_keys.py robot/detect_objects.py ubuntu@ubuntu.
 python3 ~/fetch_blue.py look    # detection test: nothing moves
 python3 ~/fetch_blue.py arm     # grab the blue cube with the arm only (safe on a table)
 python3 ~/fetch_blue.py         # search and drive to the cube, then grab (floor only)
+python3 ~/fetch_blue.py vlm     # grab using the laptop's YOLO-World detections (arm only)
+```
+
+Laptop side for `vlm` mode (Windows, in the `vlm` folder):
+
+```bash
+python -m venv .venv
+.venv\Scripts\pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+.venv\Scripts\pip install ultralytics roslibpy opencv-python requests git+https://github.com/ultralytics/CLIP.git
+.venv\Scripts\python vlm_bridge.py --prompt "blue square" --also "hand" --conf 0.08
 ```
 
 Older modes in `cleanup.py`:

@@ -4,7 +4,7 @@ Goal: type the name of an object ("blue cube", "black cap") on the laptop, and t
 finds it, lines the gripper up over it with inverse kinematics, grabs it and places it on
 its left. No colour tuning.
 
-Status as of 13 November 2026: phase 1 in progress.
+Status as of 14 November 2026: phases 1–3 done; phase 4 written and simulated, robot test pending.
 
 ## Architecture
 
@@ -127,6 +127,14 @@ Done when: it runs for 5 minutes without stopping, and the box follows the cube 
    available, otherwise skip the wrist turn.
 
 Done when: the blue cube is grabbed in arm-only mode with the laptop finding it.
+
+**Status (14 November 2026): written, robot test pending.** Implemented as a step-by-step line-up
+instead of a continuous template tracker: the robot waits for a laptop result whose picture was
+taken after the arm stopped moving (`VLM_SETTLE`), moves toward the object, and reverses an axis if
+the error grew. This avoids steering by half-second-old pictures. An offline simulation settled
+over the cube in 5–7 steps in 9 of 9 cases (cube nearer, farther, and with the reach direction
+reversed), final error 0.5–6 mm. Two robot test sessions were lost: the robot went offline mid-run,
+and after the next boot its camera server and ROS bridge never started, most likely low battery.
 
 ### Phase 5 — Tests and comparison
 

@@ -202,7 +202,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="hero-text">
     <span class="eyebrow">ArmPi Pro · blue cube fetch</span>
     <h1>Find the blue cube, pick it up, put it on the left</h1>
-    <p class="lede">A Hiwonder ArmPi Pro looks around until its arm camera sees the blue cube, drives to it, picks it up and sets it down to its own left. Other cubes on the table are ignored: the robot steers only by where blue appears in the camera picture. The arm is placed over the cube with inverse kinematics, so it can grab the cube wherever it lies within reach; an arm-only mode keeps the wheels still.</p>
+    <p class="lede">A Hiwonder ArmPi Pro looks around until its arm camera sees the blue cube, drives to it, picks it up and sets it down to its own left. Other cubes on the table are ignored: the robot steers only by where blue appears in the camera picture. The arm is placed over the cube with inverse kinematics, so it can grab the cube wherever it lies within reach; an arm-only mode keeps the wheels still. A YOLO-World model on the laptop can now find the object by name and send its position to the robot.</p>
   </div>
 
   <div class="fig">
@@ -438,6 +438,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="rules">
     <div class="rule-card"><h3 class="mono">fetch_blue.py arm</h3><p>The wheels never move. The arm looks around in front of the robot, places the gripper over the cube with IK, grabs it and puts it on the left. If the cube is out of the arm's reach it asks you to move it. Safe on a table. <b>This is the current step.</b></p><span class="pill untested">works, being tuned</span></div>
     <div class="rule-card"><h3 class="mono">fetch_blue.py</h3><p>The full version. The robot turns to find the cube anywhere around it, drives up to it, then does the same IK grab, creeping the wheels if the cube is just out of reach. Floor only.</p><span class="pill later">after arm-only works</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py vlm</h3><p>The laptop runs YOLO-World and sends the object's position; the robot lines the gripper up step by step from it, then grabs and places left. Run <span class="mono">vlm_bridge.py</span> on the laptop at the same time. Wheels never move.</p><span class="pill untested">written, robot test pending</span></div>
   </div>
   <div class="metrics">
     <span class="metric"><b>SLOW</b> 2 = half speed, 3 = a third</span>
@@ -445,6 +446,65 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <span class="metric"><b>MIN_SOLIDITY</b> higher rejects more look-alikes</span>
     <span class="metric"><b>GRIP_CLOSE</b> 450; higher grips tighter</span>
     <span class="metric"><b>GRAB_Z</b> how low the gripper goes</span>
+  </div>
+</section>
+
+<!-- ============ LAPTOP VISION ============ -->
+<section>
+  <div class="section-head">
+    <span class="eyebrow">Laptop vision</span>
+    <h2>YOLO-World on the laptop, grabbing on the robot</h2>
+    <p class="lede">The Raspberry Pi is too slow for a modern detector, so the laptop does the seeing and the robot does the moving. Type a name such as "blue square" and the laptop finds it: no colour tuning, and it ignores clothing and shadows that fooled the colour filter.</p>
+  </div>
+  <div class="split" style="align-items:start">
+    <div class="fig">
+      <svg viewBox="0 0 440 300" role="img" aria-labelledby="vlmT">
+        <title id="vlmT">Data flow between the laptop and the robot</title>
+        <defs>
+          <marker id="arrV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="s-muted"/></marker>
+        </defs>
+        <rect x="20" y="30" width="170" height="240" rx="12" fill="var(--panel)" stroke="var(--robot)" stroke-width="1.5"/>
+        <text x="105" y="56" class="t-ink" text-anchor="middle">Laptop</text>
+        <rect x="36" y="76" width="138" height="40" rx="8" fill="color-mix(in srgb, var(--robot) 10%, var(--panel))" stroke="var(--line)"/>
+        <text x="105" y="100" class="t" text-anchor="middle">fetch picture</text>
+        <rect x="36" y="130" width="138" height="40" rx="8" fill="color-mix(in srgb, var(--robot) 10%, var(--panel))" stroke="var(--line)"/>
+        <text x="105" y="154" class="t" text-anchor="middle">YOLO-World medium</text>
+        <rect x="36" y="184" width="138" height="40" rx="8" fill="color-mix(in srgb, var(--robot) 10%, var(--panel))" stroke="var(--line)"/>
+        <text x="105" y="208" class="t" text-anchor="middle">send position</text>
+        <text x="105" y="252" class="t" text-anchor="middle">vlm_bridge.py</text>
+        <rect x="250" y="30" width="170" height="240" rx="12" fill="var(--panel)" stroke="var(--leader)" stroke-width="1.5"/>
+        <text x="335" y="56" class="t-ink" text-anchor="middle">Robot</text>
+        <rect x="266" y="76" width="138" height="40" rx="8" fill="color-mix(in srgb, var(--leader) 10%, var(--panel))" stroke="var(--line)"/>
+        <text x="335" y="100" class="t" text-anchor="middle">camera server :8080</text>
+        <rect x="266" y="184" width="138" height="40" rx="8" fill="color-mix(in srgb, var(--leader) 10%, var(--panel))" stroke="var(--line)"/>
+        <text x="335" y="208" class="t" text-anchor="middle">ROS bridge :9090</text>
+        <text x="335" y="252" class="t" text-anchor="middle">fetch_blue.py vlm</text>
+        <path d="M266 96 H190" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#arrV)"/>
+        <path d="M174 204 H266" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#arrV)"/>
+        <text x="228" y="88" class="t" text-anchor="middle">picture</text>
+        <text x="220" y="196" class="t" text-anchor="middle">x, y</text>
+        <path d="M105 116 V130 M105 170 V184" stroke="var(--muted)" stroke-width="1.6" marker-end="url(#arrV)"/>
+      </svg>
+    </div>
+    <div class="stack">
+      <div class="sense-list">
+        <div class="sense"><i style="background:var(--robot)"></i><div><h3>Found by name</h3><p>Seen from above the cube looks like a flat square, so the prompt "blue square" works and "blue cube" does not. The medium model is needed; the small one barely sees it.</p></div></div>
+        <div class="sense"><i style="background:var(--scan)"></i><div><h3>Fresh pictures only</h3><p>Each laptop result arrives about half a second after its picture. The robot moves in steps and only trusts a result from a picture taken after the arm stopped, so it never steers by an old view.</p></div></div>
+        <div class="sense"><i style="background:var(--leader)"></i><div><h3>Nothing new on the robot</h3><p>The laptop fetches pictures from the camera server and sends results through the ROS bridge, both already running on the robot.</p></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="tablewrap" style="margin-top:20px">
+    <table>
+      <thead><tr><th>Phase</th><th>What</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>1 · Model on the laptop</td><td>YOLO-World speed and accuracy on robot pictures (Intel i5, no NVIDIA card)</td><td><span class="pill built">done</span> medium model, 4.5 pictures/s, cube found in 3 of 3 pictures, no false detections</td></tr>
+        <tr><td>2 · Connection</td><td>Laptop talks to the robot's ROS bridge</td><td><span class="pill built">done</span> 24 of 24 messages, 37 ms round trip, seen on the robot</td></tr>
+        <tr><td>3 · Bridge script</td><td><span class="mono">vlm_bridge.py</span>: fetch, detect, send, live window</td><td><span class="pill built">done</span> 1000 pictures in 5 min without errors; cube found in 315 of 315 pictures; about 4 per second</td></tr>
+        <tr><td>4 · Robot grabs from it</td><td><span class="mono">fetch_blue.py vlm</span>: step-by-step line-up, then the IK grab</td><td><span class="pill untested">written</span> simulated line-up settled in 5–7 steps in 9 of 9 cases; robot test pending (robot kept switching off)</td></tr>
+        <tr><td>5 · Tests</td><td>Cube, cube with other cubes, black cap, clothing in view, laptop disconnected</td><td><span class="pill later">next</span></td></tr>
+      </tbody>
+    </table>
   </div>
 </section>
 
@@ -544,7 +604,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <div class="task-top"><span class="num">8</span><span class="pill later">later</span></div>
       <h3>Make it robust</h3>
       <p>Fix the weak spots found in tasks 6 and 7.</p>
-      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">grab other colours or objects</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
+      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">laptop vision for other objects</span><span class="chip">battery check before each run</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
       <p class="done"><b>Done when</b> ten runs in a row need no help.</p>
     </article>
   </div>
