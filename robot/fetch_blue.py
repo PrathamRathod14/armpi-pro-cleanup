@@ -197,9 +197,30 @@ def pause(sec):
     time.sleep(sec * SLOW)
 
 
+MIN_BATTERY = 7200          # millivolts: below this the robot will not drive (power dips restart the Pi)
+RAMP_VEL, RAMP_ANG = 12.0, 0.06   # most the wheel speed / turn rate may rise per command (gentle starts)
+last_drive = [0.0, 0.0]
+
+
+def battery_mv():
+    try:
+        import rostopic
+        cls = rostopic.get_topic_class('/sensor/battery')[0]
+        return int(rospy.wait_for_message('/sensor/battery', cls, timeout=3.0).data)
+    except Exception:
+        return None
+
+
 def drive(vel, direction, angular):
     if ARM_ONLY and (vel or angular):
         return                                  # never move the wheels in arm / look mode
+    if vel == 0 and angular == 0:
+        last_drive[0] = last_drive[1] = 0.0
+    else:                                       # ramp up instead of jumping: smaller current spikes
+        vel = min(vel, last_drive[0] + RAMP_VEL)
+        if abs(angular) > last_drive[1] + RAMP_ANG:
+            angular = (last_drive[1] + RAMP_ANG) * (1 if angular > 0 else -1)
+        last_drive[0], last_drive[1] = vel, abs(angular)
     chassis_pub.publish(float(vel), float(direction), float(angular))
 
 
@@ -952,6 +973,13 @@ def main():
         print('Arm only: the wheels will not move. Put the cube 12-25 cm in front. Ctrl+C stops.')
     else:
         print('This mode DRIVES. Use it on the floor. Press Ctrl+C to stop.')
+    if not ARM_ONLY:
+        mv = battery_mv()
+        if mv is not None:
+            print('Battery: %.2f V' % (mv / 1000.0))
+            if mv < MIN_BATTERY:
+                print('Battery too low for driving (need at least %.1f V). Charge it first.' % (MIN_BATTERY / 1000.0))
+                return
     for attempt in range(1, MAX_TRIES + 1):
         if rospy.is_shutdown():
             return
