@@ -500,11 +500,20 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <tbody>
         <tr><td>1 · Model on the laptop</td><td>YOLO-World speed and accuracy on robot pictures (Intel i5, no NVIDIA card)</td><td><span class="pill built">done</span> medium model, 4.5 pictures/s, cube found in 3 of 3 pictures, no false detections</td></tr>
         <tr><td>2 · Connection</td><td>Laptop talks to the robot's ROS bridge</td><td><span class="pill built">done</span> 24 of 24 messages, 37 ms round trip, seen on the robot</td></tr>
-        <tr><td>3 · Bridge script</td><td><span class="mono">vlm_bridge.py</span>: fetch, detect, send, live window</td><td><span class="pill built">done</span> 1000 pictures in 5 min without errors; cube found in 315 of 315 pictures; about 4 per second</td></tr>
+        <tr><td>3 · Bridge script</td><td><span class="mono">vlm_bridge.py</span>: fetch, detect, send, live window</td><td><span class="pill built">done</span> 1000 pictures in 5 min without errors; cube found in 315 of 315 pictures; about 4 per second. A moving cube is not yet tested</td></tr>
         <tr><td>4 · Robot grabs from it</td><td><span class="mono">fetch_blue.py vlm</span>: step-by-step line-up, then the IK grab</td><td><span class="pill untested">written</span> simulated line-up settled in 5–7 steps in 9 of 9 cases; robot test pending (robot kept switching off)</td></tr>
         <tr><td>5 · Tests</td><td>Cube, cube with other cubes, black cap, clothing in view, laptop disconnected</td><td><span class="pill later">next</span></td></tr>
       </tbody>
     </table>
+  </div>
+  <div class="rules" style="margin-top:20px">
+    <div class="rule-card"><h3>Still to do</h3><p>
+      1. Phase 3: one run with the cube pushed around while the box follows it.<br>
+      2. Phase 4: the real robot test, <span class="mono">vlm_bridge.py</span> on the laptop with <span class="mono">fetch_blue.py vlm</span> on the robot. Check the battery (above 7500) and <span class="mono">rosnode list</span> first.<br>
+      3. Phase 5: tests A to E (cube alone, with other cubes, black cap, clothing in view, laptop switched off mid-run).<br>
+      4. Later: driving with laptop vision, and a language model for instructions.</p></div>
+    <div class="rule-card"><h3>Second camera: ACEBOTT AI vision module</h3><p>
+      The QD003 module is a K210 AI board with its own camera (GC2145) and screen, running CanMV. Over USB it is a serial port (<span class="mono">/dev/ttyUSB0</span>), not a webcam, so the robot never lists it as a camera; its screen works on any power. The robot talks to it (its startup messages were read on the robot). It does not clash with the arm, whose servos use <span class="mono">/dev/ttyS0</span>. Not used yet: next is checking whether it already sends results, then possibly a small program on it that sends "cube at x, y".</p></div>
   </div>
 </section>
 
@@ -604,7 +613,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <div class="task-top"><span class="num">8</span><span class="pill later">later</span></div>
       <h3>Make it robust</h3>
       <p>Fix the weak spots found in tasks 6 and 7.</p>
-      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">laptop vision for other objects</span><span class="chip">battery check before each run</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
+      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">laptop vision for other objects</span><span class="chip">battery check before each run</span><span class="chip">AI vision module as a fixed second view</span><span class="chip">back up taught positions from the robot</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
       <p class="done"><b>Done when</b> ten runs in a row need no help.</p>
     </article>
   </div>
@@ -626,7 +635,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   </div>
 </section>
 
-<footer>ArmPi Pro blue cube fetch · status 13 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour, not recorded robot data.</footer>
+<footer>ArmPi Pro blue cube fetch · status 16 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour, not recorded robot data.</footer>
 </main>
 
 <script>

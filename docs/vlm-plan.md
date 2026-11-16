@@ -4,7 +4,7 @@ Goal: type the name of an object ("blue cube", "black cap") on the laptop, and t
 finds it, lines the gripper up over it with inverse kinematics, grabs it and places it on
 its left. No colour tuning.
 
-Status as of 14 November 2026: phases 1–3 done; phase 4 written and simulated, robot test pending.
+Status as of 16 November 2026: phases 1–3 done (moving cube not yet tested); phase 4 written and simulated, robot test pending.
 
 ## Architecture
 
