@@ -15,7 +15,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
 PORT = '/dev/ttyUSB0'
-FAST_BAUD = 921600           # module sends pictures faster at this speed; 0 = stay at 115200
+FAST_BAUD = 1500000          # module sends pictures faster at this speed; 0 = stay at 115200
 BLUE = (20, 85, -25, 15, -70, -15)   # LAB range of the blue cube: L min/max, A min/max, B min/max
 MIN_PIXELS = 60              # smallest blue patch counted as the cube
 VFLIP, HMIRROR = 0, 0        # set to 1 if the picture is upside down / mirrored
@@ -187,7 +187,7 @@ def run(s, img_pub, tgt_pub, probe=0.0):
             m.data = img.tobytes()
             img_pub.publish(m)
         if probe and time.time() - t0 > probe:
-            if n_img == 0 and n_det == 0:
+            if n_img == 0:              # no complete picture: this speed does not work
                 return False
             probe = 0.0
         if time.time() - t_print > 3:
