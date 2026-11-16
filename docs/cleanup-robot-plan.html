@@ -344,7 +344,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <article class="stage" tabindex="0"><span class="n">SEARCH</span><h3>Turn and look</h3><p>Arm raised. The robot turns on the spot until blue appears in three pictures in a row. Gives up after 45 seconds.</p><span class="pill built">ran on robot</span></article>
     <article class="stage" tabindex="0"><span class="n">APPROACH</span><h3>Face it, drive</h3><p>While the cube is far, turn until it is centred, then drive forward with small corrections.</p><span class="pill untested">short tests ran</span></article>
     <article class="stage" tabindex="0"><span class="n">SLIDE IN</span><h3>Onto the spot</h3><p>When close, slide sideways and forward until the cube sits within 20 pixels of the calibrated spot, slowing down as it gets close.</p><span class="pill untested">overshoot fixed, retest</span></article>
-    <article class="stage" tabindex="0"><span class="n">PICK</span><h3>Grab and lift</h3><p>Lower to the taught grip position with the gripper open, close on the cube, lift. The wheels stay still.</p><span class="pill next">arm test runs</span></article>
+    <article class="stage" tabindex="0"><span class="n">PICK</span><h3>Grab, lift, check</h3><p>Lower with the gripper open, close on the cube, lift. Then the arm camera looks down: if the cube is still on the floor, open and grab again on the spot (up to 3 times). Only a held cube goes to the basket.</p><span class="pill next">arm test runs</span></article>
     <article class="stage" tabindex="0"><span class="n">PLACE</span><h3>Into the basket</h3><p>Turn while raised, move slowly over the basket on the robot's back, open, lift back to the raised pose. Done.</p><span class="pill next">arm test runs</span></article>
   </div>
 </section>
@@ -429,7 +429,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <div class="rule-card"><h3>1 · Find the cube by colour and shape</h3><p>Each picture is converted to HSV and blue pixels are kept (bright enough to exclude navy clothing). A patch only counts as the cube if it is solid, fills its box and is not long and thin, and it must be seen in three pictures in a row. Its centre point comes from image moments.</p></div>
     <div class="rule-card"><h3>2 · Point the gripper straight down</h3><p>Inverse kinematics puts the gripper vertically above the table, 3 cm up. The camera on the gripper now looks at the table directly below, so the cube's position in the picture tells how far the gripper is from it.</p></div>
     <div class="rule-card"><h3>3 · Chase the cube with IK</h3><p>About ten times a second: cube left or right of the target point (320, 410) turns the base; cube ahead or behind changes the reach, from 12 to 25 cm, and IK recomputes the shoulder, elbow and wrist angles. It keeps following the same cube, not whatever is biggest.</p></div>
-    <div class="rule-card"><h3>4 · Grab, place, check</h3><p>When the cube has stayed on the target point for ten pictures, IK lowers the gripper straight down and it closes. The cube goes into the basket on the robot's back (taught drop position). The camera then looks back: if the cube is still there, it tries again, up to eight times.</p></div>
+    <div class="rule-card"><h3>4 · Grab, place, check</h3><p>When the cube has stayed on the target point for ten pictures, IK lowers the gripper straight down and it closes. It lifts and the camera looks down again: a cube still lying on the floor looks the same size as before, a cube in the gripper looks much bigger. If it missed, it opens and grabs again on the spot, up to 3 times. Only then does the cube go into the basket on the robot's back. A final look after placing starts the whole attempt again if needed, up to eight times.</p></div>
   </div>
 </section>
 
@@ -677,7 +677,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     SEARCH: ['Search', 'Arm folded. The robot turns on the spot until the front camera sees blue in three pictures in a row. Red, wooden, yellow or anything else that is not blue is ignored. After 45 seconds with no blue, it gives up.'],
     APPROACH: ['Approach', 'Steered by the front camera: turn until the cube is in the centre of its picture, then drive forward with gentle starts. Lost for 2 seconds: back to searching.'],
     LINE_UP: ['Line up', 'The arm camera takes over. The arm points the gripper straight down and the robot lines up until the cube sits on the calibrated grab point.'],
-    PICK: ['Pick', 'The wrist turns to match the cube\'s sides, the arm lowers with the gripper open, closes on the cube, squeezes once more and lifts straight up.'],
+    PICK: ['Pick', 'The wrist turns to match the cube\'s sides, the arm lowers with the gripper open, closes on the cube, squeezes once more and lifts. The arm camera checks the cube is in the gripper; if it is still on the floor, it grabs again before going to the basket.'],
     PLACE: ['Into the basket', 'Holding the cube high, the arm swings round to the basket on the robot\'s back, moves slowly over it and opens: the cube drops in. Then it lifts back before turning to the front.'],
     DONE: ['Finished', 'The cube is in the basket, or no blue was found after three tries. The robot stops with the arm raised.'],
   };
@@ -909,7 +909,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         ? 'The front camera sees blue off to one side, so the robot turns toward it.'
         : 'Blue is centred in the front camera, so the robot drives toward it.';
       case 'LINE_UP': return 'Close now. The arm camera takes over and the robot lines the cube up with the green cross, the calibrated grab point.';
-      case 'PICK': return f.carry ? 'Cube held: lifting it straight up.' : 'The wrist turns to match the cube, the arm lowers and the gripper closes on it.';
+      case 'PICK': return f.carry ? 'Checked: the cube is in the gripper, not on the floor. Now to the basket.' : 'The wrist turns to match the cube, the arm lowers and the gripper closes on it.';
       case 'PLACE': return f.placed ? 'The cube is in the basket. The arm lifts and turns back to the front.'
         : f.pt > 3.0 ? 'Over the basket: the gripper opens and the cube drops in.'
         : 'Holding the cube high, the arm swings round to the basket on the robot\'s back.';

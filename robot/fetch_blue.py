@@ -55,6 +55,8 @@ WRIST_SIGN = 1             # reversed automatically if turning the wrist makes i
 WRIST_UNITS_PER_DEG = 1000 / 240.0
 GRIP_EXTRA = 25            # second, firmer squeeze after the first close
 LIFT_FIRST = 0.04          # lift straight up this far (metres) before swinging away
+GRAB_TRIES = 3             # grabs on the spot before starting the whole attempt again
+HELD_GROWTH = 1.8          # cube in the gripper looks at least this much bigger than on the floor
 SCAN = [(500, 0.15), (400, 0.15), (600, 0.15), (500, 0.22), (400, 0.22), (600, 0.22)]
 # -------------------------------------
 
@@ -146,7 +148,7 @@ class Tracker(object):
     near its last position, smooths the position, and rides through short dropouts."""
 
     def __init__(self):
-        self.pos, self.missed, self.fresh, self.angle = None, 0, 0, 0.0
+        self.pos, self.missed, self.fresh, self.angle, self.area = None, 0, 0, 0.0, 0
 
     def update(self, strict, loose):
         cand = None
@@ -166,6 +168,7 @@ class Tracker(object):
             self.missed = 0
             self.fresh += 1
             self.angle = cand[4]
+            self.area = cand[2]
             return self.pos, True
         if self.pos is not None:
             self.missed += 1
@@ -443,9 +446,79 @@ def grab(base, reach, pitch, wrist=500):
     pause(0.5)
     ik_move(reach + offset, GRAB_Z + LIFT_FIRST, base, 800, extra=((2, wrist),))   # lift straight up first
     pause(1.0)
-    servos(1500, ((1, GRIP_CLOSE + GRIP_EXTRA), (2, 500), (3, 80), (4, 825), (5, 625), (6, 500)))   # carry
-    pause(1.6)
     return True
+
+
+def carry():
+    servos(1500, ((1, GRIP_CLOSE + GRIP_EXTRA), (2, 500), (3, 80), (4, 825), (5, 625), (6, 500)))
+    pause(1.6)
+
+
+def cube_seen(frames=12):
+    """Where the cube is in the next few pictures and how big it looks (median), or None."""
+    tr, seq, seen = Tracker(), latest['seq'], []
+    for _ in range(frames):
+        seq, strict, loose, _ = next_frame(seq)
+        pos, fresh = tr.update(strict, loose)
+        if fresh and pos:
+            seen.append((pos[0], pos[1], tr.area))
+    if len(seen) < 3:
+        return None
+    med = lambda i: sorted(q[i] for q in seen)[len(seen) // 2]
+    return med(0), med(1), med(2)
+
+
+def holding(base, reach, ref):
+    """Back at the height the arm lined up at, look down: is the cube still on the floor?"""
+    say('Checking the cube is in the gripper')
+    ik_move(reach, HOVER_Z, base, 900)
+    pause(1.2)
+    now = cube_seen()
+    if now is None:
+        print('  no cube on the floor any more: it is in the gripper')
+        return True
+    cx, cy, area = now
+    if ref is None:
+        on_floor = abs(cx - CENTRE_X) < 90 and abs(cy - CENTRE_Y) < 90
+    else:
+        print('  cube size now %d pixels, before the grab %d' % (area, ref[2]))
+        on_floor = area < ref[2] * HELD_GROWTH          # same size as before: still lying on the floor
+    if on_floor:
+        print('  the cube is still on the floor at (%d, %d)' % (cx, cy))
+        return False
+    print('  cube is close to the camera: it is in the gripper')
+    return True
+
+
+def pick_up(base, reach, pitch, wrist):
+    """Grab, check, and grab again on the spot until the cube is held. Returns True when held."""
+    ref = cube_seen()
+    for g in range(1, GRAB_TRIES + 1):
+        if g > 1:
+            say('Missed the cube - opening and grabbing again (%d of %d)' % (g, GRAB_TRIES))
+            servos(500, ((1, GRIP_OPEN),))
+            pause(0.6)
+            res, data = track(base, reach)
+            if res != 'ok':
+                say('Lost the cube after the missed grab')
+                return False
+            base, reach, pitch = data
+            if WRIST_ALIGN:
+                wrist = align_wrist()
+                if wrist != 500:
+                    res, data = track(base, reach)
+                    if res == 'ok':
+                        base, reach, pitch = data
+            ref = cube_seen()
+        if not grab(base, reach, pitch, wrist):
+            return False
+        if holding(base, reach, ref):
+            carry()
+            return True
+    say('Could not get hold of the cube after %d grabs' % GRAB_TRIES)
+    servos(500, ((1, GRIP_OPEN),))
+    pause(0.6)
+    return False
 
 
 def place_left():
@@ -1039,7 +1112,7 @@ def main():
                 res, data = track(base, reach)
                 if res == 'ok':
                     base, reach, pitch = data
-        if not grab(base, reach, pitch, wrist):
+        if not pick_up(base, reach, pitch, wrist):
             continue
         place_left()
         if still_there(base, reach):

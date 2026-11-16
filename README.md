@@ -29,7 +29,7 @@ See `docs/vlm-plan.md`.
 
 | Path | Purpose |
 |---|---|
-| `robot/fetch_blue.py` | **Main program.** Stable blue detection, IK line-up, wrist alignment, grab, place left, retry. Modes: `look` (detection test), `arm` (wheels never move), no argument (search and drive) |
+| `robot/fetch_blue.py` | **Main program.** Stable blue detection, IK line-up, wrist alignment, grab, check the cube is held (grab again if not), place in the basket, retry. Modes: `look` (detection test), `arm` (wheels never move), no argument (search and drive) |
 | `vlm/vlm_bridge.py` | Laptop: fetches robot camera pictures, finds the named object with YOLO-World, sends its position to the robot on `/vlm/target` |
 | `vlm/benchmark.py`, `vlm/phase2_test.py` | Laptop: model speed test, and robot connection test |
 | `docs/vlm-plan.md` | Laptop vision plan with the results of each phase |
@@ -38,6 +38,7 @@ See `docs/vlm-plan.md`.
 | `robot/grasp_ik.py` | Earlier IK grab (arm only), kept for reference |
 | `robot/grasp_black.py` | Same IK grab looking for a dark object (the black cap test) |
 | `robot/cleanup.py` | The clean-up program: colour detection, teach mode, arm-only pick test, calibration, and the autonomous fetch |
+| `robot/patch_holdcheck.py` | Updates `~/fetch_blue.py` on the robot: after grabbing, the arm camera checks the cube is in the gripper and grabs again on the spot if it missed; only a held cube goes to the basket |
 | `robot/patch_fetch.py` | Adds the `calib` and `fetch` modes to an older `cleanup.py` already on the robot |
 | `robot/teleop_keys.py` | Keyboard control of wheels, arm and gripper, with a saved home pose |
 | `robot/detect_objects.py` | Colour detection only, no movement; useful for tuning colour ranges |
