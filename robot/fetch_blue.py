@@ -1187,12 +1187,15 @@ def main():
         if MODE == 'frontarm':
             det = front_point()
             if not det:
-                if placed:
-                    break
-                say('The front camera does not see a cube - place one in front of the robot')
-                time.sleep(3)
-                continue
-            order_scan(det[0])
+                say('Front camera sees no cube - checking with the arm camera')
+                if not arm_find():
+                    if placed:
+                        break
+                    say('The front camera does not see a cube - place one in front of the robot')
+                    time.sleep(3)
+                    continue
+            else:
+                order_scan(det[0])
         if MODE == 'front':
             arm_carry()
             if not front_search():
