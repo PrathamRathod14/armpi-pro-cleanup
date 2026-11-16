@@ -700,11 +700,24 @@ class FrontCam(threading.Thread):
 
     def send_script(self):
         import serial
-        self.ser = s = serial.Serial(self.port, 115200, timeout=0.1)
-        time.sleep(2.5)                     # opening the port can restart the module: let it boot
+        s = serial.Serial()
+        s.port, s.baudrate, s.timeout = self.port, 115200, 0.1
+        s.dtr = False                       # do not hold the module's reset/boot pins
+        s.rts = False
+        s.open()
+        self.ser = s
+        print('  waiting for the module to start (about 6 s)...')
+        time.sleep(6)                       # let ACEBOTT's program finish starting
         s.reset_input_buffer()
-        s.write(b'\r\x03\x03')              # stop whatever program it is running
+        got, end = b'', time.time() + 8     # stop it: Ctrl-C until we see the >>> prompt
+        while b'>>>' not in got and time.time() < end:
+            s.write(b'\x03')
+            time.sleep(0.3)
+            got += s.read(2000)
+        if b'>>>' not in got:
+            raise IOError('the module did not stop its own program (no >>> prompt)')
         time.sleep(0.5)
+        s.read(4000)                        # wait for the >>> prompt, then drop the rest
         s.write(b'\r\x01')                  # raw REPL
         time.sleep(0.5)
         resp = s.read(4000)
@@ -881,7 +894,7 @@ def main():
         rospy.on_shutdown(front.stop)
         print('Starting the front camera program on the K210 module...')
         t_wait = time.time()
-        while front.count == 0 and time.time() - t_wait < 12 and not rospy.is_shutdown():
+        while front.count == 0 and time.time() - t_wait < 25 and not rospy.is_shutdown():
             time.sleep(0.2)
         if front.count == 0:
             print('No results from the front camera on %s - is the module plugged in with data?' % FRONT_PORT)
