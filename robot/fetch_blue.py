@@ -116,6 +116,8 @@ def detect(img):
 
 def on_image(msg):
     global last_proc
+    if arm_cam_paused:
+        return
     if time.time() - last_proc < 0.06:
         return
     last_proc = time.time()
@@ -134,6 +136,9 @@ def on_image(msg):
     if not ARM_ONLY or MODE == 'arm':
         cv2.drawMarker(img, (CENTRE_X, CENTRE_Y), (0, 255, 0), cv2.MARKER_CROSS, 24, 2)
     cv2.putText(img, status, (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    view_count[0] += 1
+    if view_count[0] % VIEW_EVERY:
+        return
     out = Image()
     out.header = msg.header
     out.height, out.width, out.encoding, out.step = h, w, 'bgr8', w * 3
@@ -297,12 +302,60 @@ def battery_mv():
         return None
 
 
+SAG_MV = 7000              # battery below this while driving: stop the wheels and let it recover
+SAG_REST = 2.0             # seconds to rest after a dip
+VIEW_EVERY = 3             # send the arm-camera picture with boxes every 3rd frame (less CPU and Wi-Fi)
+batt = {'mv': None, 't': 0.0, 'low': None, 'shown': 0.0}
+arm_cam_paused = False     # arm-camera pictures are not processed while the front camera steers
+view_count = [0]
+
+
+def start_batt_watch():
+    """Read the battery continuously; print it every 3 s with the lowest value seen."""
+    try:
+        import rostopic
+        cls = rostopic.get_topic_class('/sensor/battery', blocking=False)[0]
+        if cls is None:
+            print('  (battery topic not found - no battery watch)')
+            return
+
+        def on_batt(m):
+            mv = int(m.data)
+            batt['mv'], batt['t'] = mv, time.time()
+            batt['low'] = mv if batt['low'] is None else min(batt['low'], mv)
+            if time.time() - batt['shown'] > 3.0:
+                batt['shown'] = time.time()
+                print('  [battery %.2f V, lowest %.2f V]' % (mv / 1000.0, batt['low'] / 1000.0), flush=True)
+        rospy.Subscriber('/sensor/battery', cls, on_batt, queue_size=1)
+        with open('/proc/uptime') as f:
+            print('  (the Pi has been on for %.0f minutes)' % (float(f.read().split()[0]) / 60.0))
+    except Exception as e:
+        print('  (battery watch: %s)' % e)
+
+
+def _no_arm_cam(fn):
+    """Run a driving step with the arm camera's processing paused (the front camera steers)."""
+    global arm_cam_paused
+    arm_cam_paused = True
+    try:
+        return fn()
+    finally:
+        arm_cam_paused = False
+
+
 def drive(vel, direction, angular):
     """Send a wheel command, changing speed and turning gradually - never an instant reversal."""
     import math
     if ARM_ONLY and (vel or angular):
         return                                  # never move the wheels in arm / look mode
     now = time.time()
+    if (vel > SOFT or angular) and batt['mv'] is not None and batt['mv'] < SAG_MV and now - batt['t'] < 2.0:
+        print('  battery dipped to %.2f V while driving - resting the wheels %.0f s' % (batt['mv'] / 1000.0, SAG_REST), flush=True)
+        chassis_pub.publish(0.0, 90.0, 0.0)
+        last_drive[:] = [0.0, 0.0, 0.0, now]
+        time.sleep(SAG_REST)
+        batt['mv'] = None
+        return
     if vel == 0 and angular == 0:
         last_drive[:] = [0.0, 0.0, 0.0, now]
         chassis_pub.publish(0.0, 90.0, 0.0)
@@ -359,9 +412,11 @@ def arm_down():
 
 
 def nudge(direction):
-    drive(CREEP_SPEED, direction, 0)
-    time.sleep(NUDGE_TIME)
-    stop()
+    t0 = time.time()
+    while not rospy.is_shutdown() and time.time() - t0 < NUDGE_TIME:
+        drive(CREEP_SPEED, direction, 0)
+        time.sleep(0.05)
+    ease_off(0.5)
     time.sleep(0.5)
 
 
@@ -1030,6 +1085,10 @@ def arm_carry():
 
 
 def front_search():
+    return _no_arm_cam(_front_search)
+
+
+def _front_search():
     say('Searching with the front camera')
     seq, seen, t0 = front.count, 0, time.time()
     while not rospy.is_shutdown() and time.time() - t0 < SEARCH_TIME:
@@ -1047,6 +1106,10 @@ def front_search():
 
 
 def front_approach():
+    return _no_arm_cam(_front_approach)
+
+
+def _front_approach():
     """Steer the wheels by the front camera until the cube is close enough for the arm.
     Follows one cube only, turns smoothly, and eases off instead of reversing suddenly."""
     global TURN_SIGN
@@ -1154,6 +1217,7 @@ def main():
         CENTRE_X, CENTRE_Y = int(gc[0]), int(gc[1])
         print('Using calibrated grab point (%d, %d)' % (CENTRE_X, CENTRE_Y))
     rospy.Subscriber('/usb_cam/image_raw/compressed', CompressedImage, on_image, queue_size=1, buff_size=2 ** 24)
+    start_batt_watch()
     if MODE in ('vlm', 'calibgrab'):
         rospy.Subscriber(VLM_TOPIC, String, on_vlm, queue_size=1)
     if MODE in ('front', 'frontlook', 'frontarm'):
