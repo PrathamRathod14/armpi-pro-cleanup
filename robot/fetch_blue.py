@@ -17,7 +17,7 @@ from armpi_pro import bus_servo_control
 from kinematics import ik_transform
 
 MODE = sys.argv[1] if len(sys.argv) > 1 else 'full'
-ARM_ONLY = MODE in ('arm', 'look', 'vlm')
+ARM_ONLY = MODE in ('arm', 'look', 'vlm', 'calibgrab')
 
 # ---------------- detection ----------------
 STRICT = ((95, 110, 120), (130, 255, 255))   # to FIND the cube: clearly blue and bright
@@ -581,8 +581,61 @@ def still_there_vlm(base, reach):
     return bool(d and d.get('found') and abs(d['cx'] - CENTRE_X) < 80 and abs(d['cy'] - CENTRE_Y) < 80)
 
 
+def calib_grab():
+    """Measure where the cube appears in the picture when it is exactly between the fingers.
+    Uses the same arm moves as a real grab, so every offset is included."""
+    reach, base = 0.15, 500
+    say('Grab calibration: moving to the grab position')
+    t = ik_move(reach, HOVER_Z, base, 1500, extra=((1, GRIP_OPEN), (2, 500)))
+    pause(1.6)
+    if not t:
+        print('IK failed - cannot calibrate')
+        return
+    offset = -0.04 + (t[2] + 180) * (0.07 / 30.0)       # same reach correction as grab()
+    ik_move(reach + offset, GRAB_Z, base, 1500)
+    pause(1.8)
+    input('Slide the blue cube exactly between the open fingers (centred, as if grabbed). Press Enter: ')
+    ik_move(reach, HOVER_Z, base, 1500)
+    pause(2.0)
+    hsv_pts, vlm_pts = [], []
+    tr, seq, end = Tracker(), latest['seq'], time.time() + 6
+    while time.time() < end and len(hsv_pts) < 15:
+        seq, strict, loose, _ = next_frame(seq)
+        pos, fresh = tr.update(strict, loose)
+        if fresh:
+            hsv_pts.append(pos)
+    with lock:
+        seen = vlm['count']
+    end = time.time() + 6
+    while time.time() < end and len(vlm_pts) < 5:
+        with lock:
+            d, c = vlm['msg'], vlm['count']
+        if c != seen and d and d.get('found'):
+            seen = c
+            vlm_pts.append((d['cx'], d['cy']))
+        time.sleep(0.05)
+    try:
+        with open(POSE_FILE) as f:
+            data = json.load(f)
+    except (IOError, OSError, ValueError):
+        data = {}
+    med = lambda pts, i: sorted(p[i] for p in pts)[len(pts) // 2]
+    if hsv_pts:
+        data['grab_centre'] = [int(med(hsv_pts, 0)), int(med(hsv_pts, 1))]
+        print('Saved GRAB CENTRE (colour detection) at %s - was (%d, %d)' % (data['grab_centre'], CENTRE_X, CENTRE_Y))
+    else:
+        print('The robot did not see the blue cube - nothing saved for colour detection')
+    if vlm_pts:
+        data['grab_centre_vlm'] = [int(med(vlm_pts, 0)), int(med(vlm_pts, 1))]
+        print('Saved GRAB CENTRE (laptop vision) at %s' % data['grab_centre_vlm'])
+    else:
+        print('No laptop results - start vlm_bridge.py on the laptop to calibrate laptop vision too')
+    with open(POSE_FILE, 'w') as f:
+        json.dump(data, f, indent=1)
+
+
 def main():
-    global joints_pub, chassis_pub, image_pub, buzzer_pub
+    global joints_pub, chassis_pub, image_pub, buzzer_pub, CENTRE_X, CENTRE_Y
     rospy.init_node('fetch_blue')
     joints_pub = rospy.Publisher('/servo_controllers/port_id_1/multi_id_pos_dur', MultiRawIdPosDur, queue_size=1)
     chassis_pub = rospy.Publisher('/chassis_control/set_velocity', SetVelocity, queue_size=1)
@@ -590,15 +643,21 @@ def main():
     buzzer_pub = rospy.Publisher('/sensor/buzzer', Float32, queue_size=1)
     rospy.on_shutdown(stop)
     signal.signal(signal.SIGHUP, lambda *a: rospy.signal_shutdown('hangup'))
+    raw = {}
     try:
         with open(POSE_FILE) as f:
-            for k, v in json.load(f).items():
-                if isinstance(v, dict):
-                    poses[k] = dict((int(i), int(p)) for i, p in v.items())
+            raw = json.load(f)
+        for k, v in raw.items():
+            if isinstance(v, dict):
+                poses[k] = dict((int(i), int(p)) for i, p in v.items())
     except (IOError, OSError, ValueError):
         pass
+    gc = raw.get('grab_centre_vlm' if MODE == 'vlm' else 'grab_centre') or raw.get('grab_centre')
+    if gc and MODE != 'calibgrab':
+        CENTRE_X, CENTRE_Y = int(gc[0]), int(gc[1])
+        print('Using calibrated grab point (%d, %d)' % (CENTRE_X, CENTRE_Y))
     rospy.Subscriber('/usb_cam/image_raw/compressed', CompressedImage, on_image, queue_size=1, buff_size=2 ** 24)
-    if MODE == 'vlm':
+    if MODE in ('vlm', 'calibgrab'):
         rospy.Subscriber(VLM_TOPIC, String, on_vlm, queue_size=1)
     rospy.sleep(1.0)
     if latest['seq'] == 0:
@@ -607,6 +666,9 @@ def main():
     print('Camera view: http://ubuntu.local:8080/stream_viewer?topic=/cleanup/image')
     if MODE == 'look':
         look_test()
+        return
+    if MODE == 'calibgrab':
+        calib_grab()
         return
     if 'look' not in poses or 'drop' not in poses:
         print('Teach the LOOK (key 1) and DROP (key 4) poses first: python3 ~/cleanup.py teach')
