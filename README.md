@@ -1,7 +1,8 @@
 # ArmPi Pro clean-up robot
 
-A Hiwonder ArmPi Pro finds a blue cube, drives to it, picks it up and places it on the
-floor to its own left. It uses only the camera on its arm.
+A Hiwonder ArmPi Pro finds a blue cube, drives to it, picks it up and puts it in the basket
+on its back. A front camera (ACEBOTT K210 AI vision module) finds the cube; the arm camera
+lines up the grab.
 
 **Status (13 November 2026):** the main program is `robot/fetch_blue.py`. It finds the blue
 cube with colour and shape checks, lines the gripper up over it with Hiwonder's inverse
@@ -32,6 +33,8 @@ See `docs/vlm-plan.md`.
 | `vlm/vlm_bridge.py` | Laptop: fetches robot camera pictures, finds the named object with YOLO-World, sends its position to the robot on `/vlm/target` |
 | `vlm/benchmark.py`, `vlm/phase2_test.py` | Laptop: model speed test, and robot connection test |
 | `docs/vlm-plan.md` | Laptop vision plan with the results of each phase |
+| `robot/front_cam.py` | Runs a detection program on the ACEBOTT K210 module and publishes `/front_cam/image` and `/front_cam/target` |
+| `docs/cameras.html` | Shows the arm camera and the front camera side by side in a browser |
 | `robot/grasp_ik.py` | Earlier IK grab (arm only), kept for reference |
 | `robot/grasp_black.py` | Same IK grab looking for a dark object (the black cap test) |
 | `robot/cleanup.py` | The clean-up program: colour detection, teach mode, arm-only pick test, calibration, and the autonomous fetch |
@@ -77,6 +80,10 @@ python3 ~/fetch_blue.py look    # detection test: nothing moves
 python3 ~/fetch_blue.py arm     # grab the blue cube with the arm only (safe on a table)
 python3 ~/fetch_blue.py         # search and drive to the cube, then grab (floor only)
 python3 ~/fetch_blue.py vlm     # grab using the laptop's YOLO-World detections (arm only)
+python3 ~/front_cam.py          # front camera (keep running in a second window)
+python3 ~/fetch_blue.py frontarm   # front camera finds the cube, arm grabs it into the basket (no driving)
+python3 ~/fetch_blue.py front      # front camera finds the cube, wheels drive to it, arm grabs (floor only)
+python3 ~/fetch_blue.py calibgrab  # measure the grab point once
 ```
 
 Laptop side for `vlm` mode (Windows, in the `vlm` folder):

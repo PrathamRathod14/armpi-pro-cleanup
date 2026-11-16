@@ -201,7 +201,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 <section class="hero">
   <div class="hero-text">
     <span class="eyebrow">ArmPi Pro · blue cube fetch</span>
-    <h1>Find the blue cube, pick it up, put it on the left</h1>
+    <h1>Find the blue cube, pick it up, put it in the basket</h1>
     <p class="lede">A Hiwonder ArmPi Pro looks around until its arm camera sees the blue cube, drives to it, picks it up and sets it down to its own left. Other cubes on the table are ignored: the robot steers only by where blue appears in the camera picture. The arm is placed over the cube with inverse kinematics, so it can grab the cube wherever it lies within reach; an arm-only mode keeps the wheels still. A YOLO-World model on the laptop can now find the object by name and send its position to the robot.</p>
   </div>
 
@@ -341,7 +341,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <article class="stage" tabindex="0"><span class="n">APPROACH</span><h3>Face it, drive</h3><p>While the cube is far, turn until it is centred, then drive forward with small corrections.</p><span class="pill untested">short tests ran</span></article>
     <article class="stage" tabindex="0"><span class="n">SLIDE IN</span><h3>Onto the spot</h3><p>When close, slide sideways and forward until the cube sits within 20 pixels of the calibrated spot, slowing down as it gets close.</p><span class="pill untested">overshoot fixed, retest</span></article>
     <article class="stage" tabindex="0"><span class="n">PICK</span><h3>Grab and lift</h3><p>Lower to the taught grip position with the gripper open, close on the cube, lift. The wheels stay still.</p><span class="pill next">arm test runs</span></article>
-    <article class="stage" tabindex="0"><span class="n">PLACE</span><h3>Set down on the left</h3><p>Swing the arm base left, lower to the floor, open, lift back to the raised pose. Done.</p><span class="pill next">arm test runs</span></article>
+    <article class="stage" tabindex="0"><span class="n">PLACE</span><h3>Into the basket</h3><p>Turn while raised, move slowly over the basket on the robot's back, open, lift back to the raised pose. Done.</p><span class="pill next">arm test runs</span></article>
   </div>
 </section>
 
@@ -425,7 +425,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <div class="rule-card"><h3>1 · Find the cube by colour and shape</h3><p>Each picture is converted to HSV and blue pixels are kept (bright enough to exclude navy clothing). A patch only counts as the cube if it is solid, fills its box and is not long and thin, and it must be seen in three pictures in a row. Its centre point comes from image moments.</p></div>
     <div class="rule-card"><h3>2 · Point the gripper straight down</h3><p>Inverse kinematics puts the gripper vertically above the table, 3 cm up. The camera on the gripper now looks at the table directly below, so the cube's position in the picture tells how far the gripper is from it.</p></div>
     <div class="rule-card"><h3>3 · Chase the cube with IK</h3><p>About ten times a second: cube left or right of the target point (320, 410) turns the base; cube ahead or behind changes the reach, from 12 to 25 cm, and IK recomputes the shoulder, elbow and wrist angles. It keeps following the same cube, not whatever is biggest.</p></div>
-    <div class="rule-card"><h3>4 · Grab, place, check</h3><p>When the cube has stayed on the target point for ten pictures, IK lowers the gripper straight down and it closes. The cube goes to the taught drop position on the left. The camera then looks back: if the cube is still there, it tries again, up to eight times.</p></div>
+    <div class="rule-card"><h3>4 · Grab, place, check</h3><p>When the cube has stayed on the target point for ten pictures, IK lowers the gripper straight down and it closes. The cube goes into the basket on the robot's back (taught drop position). The camera then looks back: if the cube is still there, it tries again, up to eight times.</p></div>
   </div>
 </section>
 
@@ -436,9 +436,11 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <h2>Arm only now, driving later</h2>
   </div>
   <div class="rules">
-    <div class="rule-card"><h3 class="mono">fetch_blue.py arm</h3><p>The wheels never move. The arm looks around in front of the robot, places the gripper over the cube with IK, grabs it and puts it on the left. If the cube is out of the arm's reach it asks you to move it. Safe on a table. <b>This is the current step.</b></p><span class="pill untested">works, being tuned</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py arm</h3><p>The wheels never move. The arm looks around in front of the robot, places the gripper over the cube with IK, grabs it and puts it in the basket. If the cube is out of the arm's reach it asks you to move it. Safe on a table.</p><span class="pill untested">works, being tuned</span></div>
     <div class="rule-card"><h3 class="mono">fetch_blue.py</h3><p>The full version. The robot turns to find the cube anywhere around it, drives up to it, then does the same IK grab, creeping the wheels if the cube is just out of reach. Floor only.</p><span class="pill later">after arm-only works</span></div>
-    <div class="rule-card"><h3 class="mono">fetch_blue.py vlm</h3><p>The laptop runs YOLO-World and sends the object's position; the robot lines the gripper up step by step from it, then grabs and places left. Run <span class="mono">vlm_bridge.py</span> on the laptop at the same time. Wheels never move.</p><span class="pill untested">written, robot test pending</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py vlm</h3><p>The laptop runs YOLO-World and sends the object's position; the robot lines the gripper up step by step from it, then grabs and places it in the basket. Run <span class="mono">vlm_bridge.py</span> on the laptop at the same time. Wheels never move.</p><span class="pill untested">written, robot test pending</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py frontarm</h3><p>The front camera (ACEBOTT module) finds the blue cube among other objects; the arm camera and IK grab it; it goes into the basket. Wheels never move. Run <span class="mono">front_cam.py</span> in a second window. <b>This is the current step.</b></p><span class="pill next">written, robot test next</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py front</h3><p>The full goal: the front camera finds the blue cube farther away, the wheels drive to it with gentle starts, then the arm grabs it and puts it in the basket. Refuses to drive below 7.2 V. Floor only.</p><span class="pill untested">first run cut out: battery 6.7 V</span></div>
   </div>
   <div class="metrics">
     <span class="metric"><b>SLOW</b> 2 = half speed, 3 = a third</span>
@@ -508,12 +510,28 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   </div>
   <div class="rules" style="margin-top:20px">
     <div class="rule-card"><h3>Still to do</h3><p>
-      1. Phase 3: one run with the cube pushed around while the box follows it.<br>
-      2. Phase 4: the real robot test, <span class="mono">vlm_bridge.py</span> on the laptop with <span class="mono">fetch_blue.py vlm</span> on the robot. Check the battery (above 7500) and <span class="mono">rosnode list</span> first.<br>
-      3. Phase 5: tests A to E (cube alone, with other cubes, black cap, clothing in view, laptop switched off mid-run).<br>
-      4. Later: driving with laptop vision, and a language model for instructions.</p></div>
+      1. <b>Now:</b> <span class="mono">fetch_blue.py frontarm</span> with several objects: front camera finds the blue cube, arm grabs it into the basket.<br>
+      2. Check the front camera's green box marks only the blue cube; tune its colour range if not.<br>
+      3. Run <span class="mono">calibgrab</span> and confirm the grab lands centred.<br>
+      4. With a full battery: <span class="mono">fetch_blue.py front</span> on the floor (driving).<br>
+      5. Laptop vision: phase 4 robot test (<span class="mono">vlm</span>), phase 5 tests, moving-cube check.</p></div>
     <div class="rule-card"><h3>Second camera: ACEBOTT AI vision module</h3><p>
-      The QD003 module is a K210 AI board with its own camera (GC2145) and screen, running CanMV. Over USB it is a serial port (<span class="mono">/dev/ttyUSB0</span>), not a webcam, so the robot never lists it as a camera; its screen works on any power. The robot talks to it (its startup messages were read on the robot). It does not clash with the arm, whose servos use <span class="mono">/dev/ttyS0</span>. Not used yet: next is checking whether it already sends results, then possibly a small program on it that sends "cube at x, y".</p></div>
+      The QD003 module is a K210 AI board with its own camera (GC2145) and screen, running CanMV. Over USB it is a serial port (<span class="mono">/dev/ttyUSB0</span>), not a webcam, so the robot never lists it as a camera; its screen works on any power. The robot talks to it (its startup messages were read on the robot). It does not clash with the arm, whose servos use <span class="mono">/dev/ttyS0</span>. Now used as the front camera: <span class="mono">front_cam.py</span> runs our own detection program on it and streams its picture.</p></div>
+  </div>
+</section>
+
+<!-- ============ FRONT CAMERA ============ -->
+<section>
+  <div class="section-head">
+    <span class="eyebrow">Two cameras</span>
+    <h2>The front camera finds, the arm camera grabs</h2>
+    <p class="lede">The ACEBOTT AI vision module is mounted low on the front of the chassis. It looks for the blue cube on its own chip and tells the robot where it is; the arm camera then takes over for the precise grab.</p>
+  </div>
+  <div class="rules">
+    <div class="rule-card"><h3>front_cam.py</h3><p>Stops ACEBOTT's program on the module (release the reset lines, wait about 6 s, repeated Ctrl-C), sends it a small CanMV program, and turns its output into ROS topics: <span class="mono">/front_cam/image</span> (the picture) and <span class="mono">/front_cam/target</span> (cube at x, y). Tries 1.5 Mbaud for smooth pictures and falls back to 115200. Nothing is saved on the module: switching it off and on brings ACEBOTT's program back.</p><span class="pill built">pictures working</span></div>
+    <div class="rule-card"><h3>Both cameras in the browser</h3><p><span class="mono">docs/cameras.html</span> shows the arm camera and the front camera side by side. The front picture shows a green box around the cube the module has found.</p><span class="pill built">working</span></div>
+    <div class="rule-card"><h3>Grab point calibration</h3><p><span class="mono">fetch_blue.py calibgrab</span>: the arm goes to the grab position, you slide the cube between the fingers, and it measures where the cube appears in the picture. Replaces Hiwonder's default (320, 410), which made the grab land a bit off.</p><span class="pill untested">written</span></div>
+    <div class="rule-card"><h3>Power</h3><p>The robot restarted twice when the wheels started (battery 6.2 V and 6.7 V). Wheel speeds now ramp up gently, driving refuses to start below 7.2 V, and the module adds load from the Pi's USB. Charge fully (about 2 h switched off) before driving tests.</p><span class="pill untested">safeguards added</span></div>
   </div>
 </section>
 
@@ -549,7 +567,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <article class="tile"><h3>With other cubes</h3><p>Red and wooden cubes nearby. The robot must go only for blue.</p></article>
   </div>
   <div class="metrics">
-    <span class="metric"><b>Success</b> runs that end with the blue cube on the left</span>
+    <span class="metric"><b>Success</b> runs that end with the blue cube in the basket</span>
     <span class="metric"><b>Wrong cube</b> another cube approached or grabbed (goal: zero)</span>
     <span class="metric"><b>Missed grabs</b> gripper closed on nothing</span>
     <span class="metric"><b>Time</b> seconds from start to placed</span>
@@ -613,7 +631,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <div class="task-top"><span class="num">8</span><span class="pill later">later</span></div>
       <h3>Make it robust</h3>
       <p>Fix the weak spots found in tasks 6 and 7.</p>
-      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">laptop vision for other objects</span><span class="chip">battery check before each run</span><span class="chip">AI vision module as a fixed second view</span><span class="chip">back up taught positions from the robot</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
+      <div class="try"><span class="try-label">Candidates</span><span class="chip">camera watchdog</span><span class="chip">laptop vision for other objects</span><span class="chip">battery check before each run</span><span class="chip">powered USB hub for the module</span><span class="chip">back up taught positions from the robot</span><span class="chip">battery warning</span><span class="chip">several cubes in one run</span><span class="chip">LED status</span></div>
       <p class="done"><b>Done when</b> ten runs in a row need no help.</p>
     </article>
   </div>
@@ -635,7 +653,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   </div>
 </section>
 
-<footer>ArmPi Pro blue cube fetch · status 16 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour, not recorded robot data.</footer>
+<footer>ArmPi Pro blue cube fetch · status 17 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour, not recorded robot data.</footer>
 </main>
 
 <script>
@@ -657,7 +675,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     LINE_UP: ['Slide in', 'Once the cube is close, the robot slides sideways and forward until the cube sits within 20 pixels of the spot recorded by calib. The arm stays raised.'],
     PICK: ['Pick', 'Lower to the taught grip position with the gripper open, close to the taught width, lift back to the raised pose. The wheels do not move.'],
     PLACE: ['Place', 'Turn the arm base to the left, lower until the cube rests on the floor, open, lift back up.'],
-    DONE: ['Finished', 'The cube is on the left, or no blue was found after three tries. The robot stops with the arm raised.'],
+    DONE: ['Finished', 'The cube is in the basket, or no blue was found after three tries. The robot stops with the arm raised.'],
   };
   const note = document.getElementById('stateNote');
   const states = document.querySelectorAll('.fsm g.st');
