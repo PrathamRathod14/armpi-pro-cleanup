@@ -39,6 +39,7 @@ See `docs/vlm-plan.md`.
 | `robot/grasp_black.py` | Same IK grab looking for a dark object (the black cap test) |
 | `robot/cleanup.py` | The clean-up program: colour detection, teach mode, arm-only pick test, calibration, and the autonomous fetch |
 | `robot/patch_holdcheck.py` | Updates `~/fetch_blue.py` on the robot: after grabbing, the arm camera checks the cube is in the gripper and grabs again on the spot if it missed; only a held cube goes to the basket |
+| `robot/patch_red.py` | Updates `~/fetch_blue.py` and `~/front_cam.py`: red cubes are picked as well as blue ones, one after another until none is left (`PICK_RED = False` for blue only) |
 | `robot/patch_arrange.py` | Updates `~/fetch_blue.py` (after `patch_holdcheck.py`): centres exactly over the cube before grabbing, and closes, loosens and closes again so the cube sits in the middle of the fingers |
 | `robot/patch_fetch.py` | Adds the `calib` and `fetch` modes to an older `cleanup.py` already on the robot |
 | `robot/teleop_keys.py` | Keyboard control of wheels, arm and gripper, with a saved home pose |

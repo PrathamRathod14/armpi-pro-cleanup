@@ -17,6 +17,8 @@ from std_msgs.msg import String
 PORT = '/dev/ttyUSB0'
 FAST_BAUD = 1500000          # module sends pictures faster at this speed; 0 = stay at 115200
 BLUE = (20, 85, -25, 15, -70, -15)   # LAB range of the blue cube: L min/max, A min/max, B min/max
+RED = (20, 80, 30, 80, 0, 60)        # LAB range of the red cube (A positive = red)
+PICK_RED = True                      # also report red cubes
 MIN_PIXELS = 60              # smallest blue patch counted as the cube
 VFLIP, HMIRROR = 0, 0        # set to 1 if the picture is upside down / mirrored
 JPEG_QUALITY = 35            # lower = smaller pictures = faster
@@ -98,7 +100,7 @@ def start(s, baud):
     s.write(b'\r\x01')                                   # raw REPL
     time.sleep(0.5)
     s.read(4000)
-    code = SCRIPT.format(vflip=VFLIP, hmirror=HMIRROR, th=str(tuple(BLUE)), px=MIN_PIXELS,
+    code = SCRIPT.format(vflip=VFLIP, hmirror=HMIRROR, th=', '.join(str(tuple(t)) for t in [BLUE] + ([RED] if PICK_RED else [])), px=MIN_PIXELS,
                          baud=baud, stats=1 if STATS else 0, q=JPEG_QUALITY).encode()
     for i in range(0, len(code), 128):
         s.write(code[i:i + 128])

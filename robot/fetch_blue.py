@@ -22,6 +22,9 @@ ARM_ONLY = MODE in ('arm', 'look', 'vlm', 'calibgrab', 'frontlook', 'frontarm')
 # ---------------- detection ----------------
 STRICT = ((95, 110, 120), (130, 255, 255))   # to FIND the cube: clearly blue and bright
 LOOSE = ((90, 70, 60), (135, 255, 255))      # to KEEP tracking it: also shaded faces and highlights
+PICK_RED = True            # also pick red cubes
+STRICT_RED = (((0, 120, 80), (8, 255, 255)), ((170, 120, 80), (180, 255, 255)))
+LOOSE_RED = (((0, 90, 60), (9, 255, 255)), ((165, 90, 60), (180, 255, 255)))
 MIN_AREA = 150             # smallest patch to find the cube (pixels)
 MIN_SOLIDITY = 0.75        # cube must be a solid patch (rejects ragged shapes)
 MIN_FILL = 0.45            # cube must fill at least this much of its box
@@ -76,8 +79,11 @@ def clamp(v, lo, hi):
 
 
 # ---------------- vision ----------------
-def blobs_in(hsv, rng, min_area, shape_check):
-    mask = cv2.inRange(hsv, np.array(rng[0]), np.array(rng[1]))
+def blobs_in(hsv, rngs, min_area, shape_check):
+    mask = None
+    for rng in rngs:                                  # one or more colour ranges, joined
+        m = cv2.inRange(hsv, np.array(rng[0]), np.array(rng[1]))
+        mask = m if mask is None else cv2.bitwise_or(mask, m)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))   # join pieces split by highlights
     out = []
@@ -103,7 +109,9 @@ def blobs_in(hsv, rng, min_area, shape_check):
 
 def detect(img):
     hsv = cv2.cvtColor(cv2.GaussianBlur(img, (5, 5), 0), cv2.COLOR_BGR2HSV)
-    return blobs_in(hsv, STRICT, MIN_AREA, True), blobs_in(hsv, LOOSE, MIN_AREA // 2, False)
+    strict = (STRICT,) + (STRICT_RED if PICK_RED else ())
+    loose = (LOOSE,) + (LOOSE_RED if PICK_RED else ())
+    return blobs_in(hsv, strict, MIN_AREA, True), blobs_in(hsv, loose, MIN_AREA // 2, False)
 
 
 def on_image(msg):
@@ -753,6 +761,7 @@ def calib_grab():
 FRONT_PORT = '/dev/ttyUSB0'
 FRONT_W, FRONT_H = 320, 240
 FRONT_BLUE = (20, 85, -25, 15, -70, -15)   # LAB colour range of the blue cube: L min/max, A min/max, B min/max
+FRONT_RED = (20, 80, 30, 80, 0, 60)   # LAB colour range of the red cube
 FRONT_MIN_PIXELS = 60      # smallest blue patch (the cube far away is small)
 FRONT_VFLIP = 0            # 1 if the module's picture is upside down
 FRONT_HMIRROR = 0          # 1 if the module's picture is mirrored
@@ -835,7 +844,8 @@ class FrontCam(threading.Thread):
         time.sleep(0.5)
         resp = s.read(4000)
         code = K210_SCRIPT.format(vflip=FRONT_VFLIP, hmirror=FRONT_HMIRROR,
-                                  th=str(tuple(FRONT_BLUE)), px=FRONT_MIN_PIXELS).encode()
+                                  th=', '.join(str(tuple(t)) for t in [FRONT_BLUE] + ([FRONT_RED] if PICK_RED else [])),
+                                  px=FRONT_MIN_PIXELS).encode()
         if b'raw REPL' not in resp:
             s.write(b'\x05')                # fall back to paste mode
             time.sleep(0.3)
@@ -996,7 +1006,7 @@ def front_approach():
 
 def front_point():
     """Wait until the front camera sees the blue cube steadily; returns its detection or None."""
-    say('Front camera: looking for the blue cube')
+    say('Front camera: looking for a blue or red cube' if PICK_RED else 'Front camera: looking for the blue cube')
     seq, seen, t0 = front.count, 0, time.time()
     while not rospy.is_shutdown() and time.time() - t0 < 30:
         seq, det = front.latest(seq)
@@ -1095,33 +1105,43 @@ def main():
             if mv < MIN_BATTERY:
                 print('Battery too low for driving (need at least %.1f V). Charge it first.' % (MIN_BATTERY / 1000.0))
                 return
-    for attempt in range(1, MAX_TRIES + 1):
+    placed, attempt = 0, 0
+    while attempt < MAX_TRIES:
+        attempt += 1
         if rospy.is_shutdown():
             return
         print('--- Attempt %d of %d ---' % (attempt, MAX_TRIES))
         if MODE == 'frontarm':
             det = front_point()
             if not det:
-                say('The front camera does not see the blue cube - place it in front of the robot')
+                if placed:
+                    break
+                say('The front camera does not see a cube - place one in front of the robot')
                 time.sleep(3)
                 continue
             order_scan(det[0])
         if MODE == 'front':
             arm_carry()
             if not front_search():
-                say('The front camera sees no blue cube')
+                if placed:
+                    break
+                say('The front camera sees no cube')
                 return
             if not front_approach():
                 continue
         elif not ARM_ONLY:
             arm_look()
             if not visible() and not search():
-                say('No blue cube found anywhere around the robot')
+                if placed:
+                    break
+                say('No cube found anywhere around the robot')
                 return
             if not approach():
                 continue
         above = line_up()
         if not above:
+            if placed and MODE in ('arm', 'vlm'):
+                break
             continue
         base, reach, pitch = above
         wrist = 500
@@ -1137,12 +1157,16 @@ def main():
         if still_there(base, reach):
             say('The cube is still there - the grab missed, trying again')
             continue
-        arm_look()
-        say('Done: blue cube placed in the basket')
-        return
+        placed += 1
+        attempt = 0
+        say('Cube %d is in the basket - looking for the next one' % placed)
+        continue
     stop()
     arm_look()
-    say('Gave up after %d attempts' % MAX_TRIES)
+    if placed:
+        say('Finished: %d cube(s) in the basket, no more cubes found' % placed)
+    else:
+        say('Gave up after %d attempts' % MAX_TRIES)
 
 
 if __name__ == '__main__':
