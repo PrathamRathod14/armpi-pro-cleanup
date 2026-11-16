@@ -55,6 +55,8 @@ WRIST_SIGN = 1             # reversed automatically if turning the wrist makes i
 WRIST_UNITS_PER_DEG = 1000 / 240.0
 GRIP_EXTRA = 25            # second, firmer squeeze after the first close
 LIFT_FIRST = 0.04          # lift straight up this far (metres) before swinging away
+FINE_TARGET, FINE_DEADBAND = 8, 4   # exact centring before grabbing (pixels)
+SETTLE_OPEN = 300          # loosen to this after the first close so the cube settles in the middle
 GRAB_TRIES = 3             # grabs on the spot before starting the whole attempt again
 HELD_GROWTH = 1.8          # cube in the gripper looks at least this much bigger than on the floor
 SCAN = [(500, 0.15), (400, 0.15), (600, 0.15), (500, 0.22), (400, 0.22), (600, 0.22)]
@@ -329,14 +331,16 @@ def arm_find():
     return None
 
 
-def track(base, reach):
+def track(base, reach, fine=False):
     if MODE == 'vlm':
         return vlm_track(base, reach)
-    say('Lining the gripper up over the cube')
+    if not fine:
+        say('Lining the gripper up over the cube')
+    tol, db, limit = (FINE_TARGET, FINE_DEADBAND, 12) if fine else (ON_TARGET, DEADBAND, 40)
     x_dis, y_dis = float(base), float(reach)
     tr, seq = Tracker(), latest['seq']
     stable, far, near, t0, shown = 0, 0, 0, time.time(), 0.0
-    while not rospy.is_shutdown() and time.time() - t0 < 40:
+    while not rospy.is_shutdown() and time.time() - t0 < limit:
         seq, strict, loose, _ = next_frame(seq)
         pos, fresh = tr.update(strict, loose)
         if pos is None:
@@ -344,8 +348,8 @@ def track(base, reach):
         if not fresh:
             continue                            # briefly not seen: hold still, keep the count
         cx, cy = pos
-        dx = X_GAIN * (CENTRE_X - cx) if abs(cx - CENTRE_X) >= DEADBAND else 0.0
-        dy = Y_GAIN * (CENTRE_Y - cy) if abs(cy - CENTRE_Y) >= DEADBAND else 0.0
+        dx = X_GAIN * (CENTRE_X - cx) if abs(cx - CENTRE_X) >= db else 0.0
+        dy = Y_GAIN * (CENTRE_Y - cy) if abs(cy - CENTRE_Y) >= db else 0.0
         x_dis = clamp(x_dis + dx, 200, 800)
         y_dis = clamp(y_dis + dy, MIN_REACH, MAX_REACH)
         t = ik_move(y_dis, HOVER_Z, int(x_dis), TRACK_MS / SLOW)
@@ -358,7 +362,7 @@ def track(base, reach):
             return 'far', None
         if near >= 15:
             return 'near', None
-        if abs(cx - CENTRE_X) < ON_TARGET and abs(cy - CENTRE_Y) < ON_TARGET and t:
+        if abs(cx - CENTRE_X) < tol and abs(cy - CENTRE_Y) < tol and t:
             stable += 1
             if stable >= STABLE_FRAMES:
                 print('  above the cube: base %d, reach %.3f m' % (x_dis, y_dis))
@@ -440,6 +444,10 @@ def grab(base, reach, pitch, wrist=500):
         say('Cube is out of reach')
         return False
     pause(1.5)
+    servos(700, ((1, GRIP_CLOSE),))                      # first close: the fingers push the cube to the middle
+    pause(0.9)
+    servos(300, ((1, SETTLE_OPEN),))                     # loosen a little so the cube settles straight
+    pause(0.5)
     servos(500, ((1, GRIP_CLOSE),))
     pause(0.8)
     servos(300, ((1, GRIP_CLOSE + GRIP_EXTRA),))         # second squeeze to seat the cube
@@ -490,6 +498,16 @@ def holding(base, reach, ref):
     return True
 
 
+def arrange(base, reach, pitch):
+    """Final careful centring right above the cube, so the fingers come down evenly on both sides."""
+    say('Arranging: centring the gripper exactly over the cube')
+    res, data = track(base, reach, fine=True)
+    if res == 'ok':
+        return data
+    print('  fine centring did not settle - using the first line-up')
+    return base, reach, pitch
+
+
 def pick_up(base, reach, pitch, wrist):
     """Grab, check, and grab again on the spot until the cube is held. Returns True when held."""
     ref = cube_seen()
@@ -509,7 +527,8 @@ def pick_up(base, reach, pitch, wrist):
                     res, data = track(base, reach)
                     if res == 'ok':
                         base, reach, pitch = data
-            ref = cube_seen()
+        base, reach, pitch = arrange(base, reach, pitch)
+        ref = cube_seen()
         if not grab(base, reach, pitch, wrist):
             return False
         if holding(base, reach, ref):
