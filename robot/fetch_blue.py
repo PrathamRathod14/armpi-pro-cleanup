@@ -33,10 +33,10 @@ HOLD_FRAMES = 8            # keep the last position through this many missed pic
 SMOOTH = 0.5               # 1 = jump to each new position, lower = smoother
 FIND_FRAMES = 3            # fresh sightings needed before the cube counts as found
 # ---------------- wheels (full mode only) ----------------
-TURN_RATE = 0.25
+TURN_RATE = 0.15           # turning speed (lower = smaller current spikes)
 TURN_SIGN = 1              # reversed automatically if the robot turns away from the cube
-DRIVE_SPEED = 45.0         # mm/s while far
-CREEP_SPEED = 30.0         # mm/s when close
+DRIVE_SPEED = 35.0         # mm/s while far
+CREEP_SPEED = 22.0         # mm/s when close
 CENTRE_BAND = 0.15
 NEAR_STOP = 0.82           # stop driving when the cube is this low in the picture
 SEARCH_TIME = 60
@@ -283,7 +283,9 @@ def pause(sec):
 
 MIN_BATTERY = 7200          # millivolts: below this the robot will not drive (power dips restart the Pi)
 RAMP_VEL_S, RAMP_ANG_S = 50.0, 0.3   # most the wheel speed (mm/s) / turn rate may rise per SECOND
-last_drive = [0.0, 0.0, 0.0]       # speed, turn rate, time of the last command
+last_drive = [0.0, 0.0, 0.0, 0.0]  # sideways speed, forward speed, turn rate, time of the last command
+SOFT = 0.001               # 'almost zero' speed: drive() eases down to it instead of stopping dead
+LOCK_JUMP = 70             # front camera: a jump of more than this (pixels) is another cube
 
 
 def battery_mv():
@@ -296,19 +298,35 @@ def battery_mv():
 
 
 def drive(vel, direction, angular):
+    """Send a wheel command, changing speed and turning gradually - never an instant reversal."""
+    import math
     if ARM_ONLY and (vel or angular):
         return                                  # never move the wheels in arm / look mode
     now = time.time()
     if vel == 0 and angular == 0:
-        last_drive[0] = last_drive[1] = 0.0
-    else:                                       # ramp up slowly by time: small current spikes
-        dt = min(0.15, now - last_drive[2]) if last_drive[2] else 0.05
-        vel = min(vel, last_drive[0] + RAMP_VEL_S * dt)
-        if abs(angular) > last_drive[1] + RAMP_ANG_S * dt:
-            angular = (last_drive[1] + RAMP_ANG_S * dt) * (1 if angular > 0 else -1)
-        last_drive[0], last_drive[1] = vel, abs(angular)
-    last_drive[2] = now
-    chassis_pub.publish(float(vel), float(direction), float(angular))
+        last_drive[:] = [0.0, 0.0, 0.0, now]
+        chassis_pub.publish(0.0, 90.0, 0.0)
+        return
+    dt = min(0.15, now - last_drive[3]) if last_drive[3] else 0.05
+    tx, ty = vel * math.cos(math.radians(direction)), vel * math.sin(math.radians(direction))
+    dx, dy = tx - last_drive[0], ty - last_drive[1]
+    d, m = math.hypot(dx, dy), RAMP_VEL_S * dt
+    if d > m:
+        dx, dy = dx * m / d, dy * m / d
+    vx, vy = last_drive[0] + dx, last_drive[1] + dy
+    w = last_drive[2] + max(-RAMP_ANG_S * dt, min(RAMP_ANG_S * dt, angular - last_drive[2]))
+    last_drive[:] = [vx, vy, w, now]
+    v = math.hypot(vx, vy)
+    chassis_pub.publish(float(v), float(math.degrees(math.atan2(vy, vx)) % 360 if v > 0.01 else 90.0), float(w))
+
+
+def ease_off(sec=0.8):
+    """Slow the wheels down gradually to a standstill."""
+    t0 = time.time()
+    while not rospy.is_shutdown() and time.time() - t0 < sec:
+        drive(SOFT, 90, 0)
+        time.sleep(0.05)
+    stop()
 
 
 def stop():
@@ -1017,7 +1035,7 @@ def front_search():
     while not rospy.is_shutdown() and time.time() - t0 < SEARCH_TIME:
         seq, det = front.latest(seq)
         if det:
-            stop()
+            drive(SOFT, 90, 0)
             seen += 1
             if seen >= 3:
                 return True
@@ -1029,32 +1047,29 @@ def front_search():
 
 
 def front_approach():
-    """Steer the wheels by the front camera until the cube is close enough for the arm."""
+    """Steer the wheels by the front camera until the cube is close enough for the arm.
+    Follows one cube only, turns smoothly, and eases off instead of reversing suddenly."""
     global TURN_SIGN
     say('Driving to the cube (front camera)')
-    seq, low, last_err, last_turn, flipped = front.count, False, None, None, False
-    t_lost = t_check = t0 = time.time()
-    shown = 0.0
+    seq, low, lock, jumps = front.count, False, None, 0
+    last_err, t_check, t_lost, t0, shown = None, time.time(), time.time(), time.time(), 0.0
     while not rospy.is_shutdown() and time.time() - t0 < 90:
         seq, det = front.latest(seq)
+        if det and lock is not None and abs(det[0] - lock[0]) > LOCK_JUMP and jumps < 8:
+            jumps += 1                          # another cube is the biggest now: keep following ours
+            continue
         if not det:
             if low:
-                stop()
+                ease_off(0.4)
                 print('  cube went under the front camera - close enough')
                 return True
-            if last_turn is not None and time.time() - t_lost < 3.0:
-                if not flipped:                 # lost it while turning: we turned the wrong way
-                    TURN_SIGN = -TURN_SIGN
-                    flipped = True
-                    print('  lost the cube while turning - turning back the other way')
-                drive(0, 90, -TURN_SIGN * TURN_RATE * last_turn)
-                continue
-            stop()
-            if time.time() - t_lost > 1.5:
+            drive(SOFT, 90, 0)                  # slow down gently while it is out of view
+            if time.time() - t_lost > 2.0:
+                ease_off(0.5)
                 say('Lost the cube while driving')
                 return False
             continue
-        t_lost, flipped = time.time(), False
+        lock, jumps, t_lost = det, 0, time.time()
         cx, cy = det[0], det[1]
         low = cy > FRONT_UNDER * FRONT_H
         ex = (cx - FRONT_W / 2.0) / (FRONT_W / 2.0)
@@ -1062,20 +1077,21 @@ def front_approach():
             shown = time.time()
             print('  front camera: cube at (%d, %d), size %d' % (cx, cy, det[4]))
         if cy >= FRONT_STOP_Y and abs(ex) < CENTRE_BAND:
-            stop()
+            ease_off(0.5)
             return True
+        turn = -TURN_SIGN * TURN_RATE * max(0.5, min(1.0, abs(ex) * 1.6)) * (1 if ex > 0 else -1)
         if abs(ex) > CENTRE_BAND:
-            last_turn = 1 if ex > 0 else -1
-            drive(0, 90, -TURN_SIGN * TURN_RATE * last_turn)
-            if time.time() - t_check > 0.4:
-                if last_err is not None and abs(ex) > last_err + 0.05:
+            drive(SOFT, 90, turn)               # turn on the spot, faster the further off-centre
+            if time.time() - t_check > 1.0:
+                if last_err is not None and abs(ex) > last_err + 0.15:
+                    print('  turning the wrong way - easing off, then turning the other way')
+                    ease_off(0.8)
                     TURN_SIGN = -TURN_SIGN
-                    print('  turning the other way')
                 last_err, t_check = abs(ex), time.time()
         else:
-            last_err, last_turn = None, None
-            drive(DRIVE_SPEED if cy < 0.6 * FRONT_H else CREEP_SPEED, 90, -TURN_SIGN * TURN_RATE * 0.5 * ex)
-    stop()
+            last_err = None
+            drive(DRIVE_SPEED if cy < 0.6 * FRONT_H else CREEP_SPEED, 90, -TURN_SIGN * TURN_RATE * ex)   # gentle steering
+    ease_off(0.5)
     return False
 
 
