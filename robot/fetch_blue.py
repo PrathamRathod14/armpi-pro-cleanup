@@ -286,18 +286,20 @@ def pause(sec):
     time.sleep(sec * SLOW)
 
 
-MIN_BATTERY = 7200          # millivolts: below this the robot will not drive (power dips restart the Pi)
+MIN_BATTERY = 7500          # millivolts (middle of several readings): below this the robot will not drive
 RAMP_VEL_S, RAMP_ANG_S = 50.0, 0.3   # most the wheel speed (mm/s) / turn rate may rise per SECOND
 last_drive = [0.0, 0.0, 0.0, 0.0]  # sideways speed, forward speed, turn rate, time of the last command
 SOFT = 0.001               # 'almost zero' speed: drive() eases down to it instead of stopping dead
 LOCK_JUMP = 70             # front camera: a jump of more than this (pixels) is another cube
 
 
-def battery_mv():
+def battery_mv(n=5):
+    """Battery in millivolts: the middle of n readings (single readings can be off by a volt)."""
     try:
         import rostopic
         cls = rostopic.get_topic_class('/sensor/battery')[0]
-        return int(rospy.wait_for_message('/sensor/battery', cls, timeout=3.0).data)
+        vals = sorted(int(rospy.wait_for_message('/sensor/battery', cls, timeout=3.0).data) for _ in range(n))
+        return vals[len(vals) // 2]
     except Exception:
         return None
 
@@ -320,7 +322,8 @@ def start_batt_watch():
             return
 
         def on_batt(m):
-            mv = int(m.data)
+            batt['hist'] = batt.get('hist', [])[-2:] + [int(m.data)]
+            mv = sorted(batt['hist'])[len(batt['hist']) // 2]     # middle of the last 3: ignores single glitches
             batt['mv'], batt['t'] = mv, time.time()
             batt['low'] = mv if batt['low'] is None else min(batt['low'], mv)
             if time.time() - batt['shown'] > 3.0:

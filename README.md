@@ -39,6 +39,8 @@ See `docs/vlm-plan.md`.
 | `robot/grasp_black.py` | Same IK grab looking for a dark object (the black cap test) |
 | `robot/cleanup.py` | The clean-up program: colour detection, teach mode, arm-only pick test, calibration, and the autonomous fetch |
 | `robot/patch_holdcheck.py` | Updates `~/fetch_blue.py` on the robot: after grabbing, the arm camera checks the cube is in the gripper and grabs again on the spot if it missed; only a held cube goes to the basket |
+| `robot/run_robot.sh`, `robot/stop_robot.sh` | Start the front camera and `fetch_blue.py` (default `front`) so they keep running if Wi-Fi drops, with a log in `~/fetch_log.txt`; stop everything and the wheels |
+| `robot/wander.py` | Drives around on its own for a set time with gentle starts (no obstacle sensor) |
 | `robot/patch_voice.py` | Updates `~/fetch_blue.py`: the robot says what it is doing ("Got it! I picked up the cube.") with espeak and a speaker, or beeps with its buzzer if there is no speaker (`VOICE = 'auto' / 'beep' / 'off'`) |
 | `robot/patch_red.py` | Updates `~/fetch_blue.py` and `~/front_cam.py`: red cubes are picked as well as blue ones, one after another until none is left (`PICK_RED = False` for blue only) |
 | `robot/patch_arrange.py` | Updates `~/fetch_blue.py` (after `patch_holdcheck.py`): centres exactly over the cube before grabbing, and closes, loosens and closes again so the cube sits in the middle of the fingers |
