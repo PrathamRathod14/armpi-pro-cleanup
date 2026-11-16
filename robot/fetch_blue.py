@@ -282,8 +282,8 @@ def pause(sec):
 
 
 MIN_BATTERY = 7200          # millivolts: below this the robot will not drive (power dips restart the Pi)
-RAMP_VEL, RAMP_ANG = 12.0, 0.06   # most the wheel speed / turn rate may rise per command (gentle starts)
-last_drive = [0.0, 0.0]
+RAMP_VEL_S, RAMP_ANG_S = 50.0, 0.3   # most the wheel speed (mm/s) / turn rate may rise per SECOND
+last_drive = [0.0, 0.0, 0.0]       # speed, turn rate, time of the last command
 
 
 def battery_mv():
@@ -298,13 +298,16 @@ def battery_mv():
 def drive(vel, direction, angular):
     if ARM_ONLY and (vel or angular):
         return                                  # never move the wheels in arm / look mode
+    now = time.time()
     if vel == 0 and angular == 0:
         last_drive[0] = last_drive[1] = 0.0
-    else:                                       # ramp up instead of jumping: smaller current spikes
-        vel = min(vel, last_drive[0] + RAMP_VEL)
-        if abs(angular) > last_drive[1] + RAMP_ANG:
-            angular = (last_drive[1] + RAMP_ANG) * (1 if angular > 0 else -1)
+    else:                                       # ramp up slowly by time: small current spikes
+        dt = min(0.15, now - last_drive[2]) if last_drive[2] else 0.05
+        vel = min(vel, last_drive[0] + RAMP_VEL_S * dt)
+        if abs(angular) > last_drive[1] + RAMP_ANG_S * dt:
+            angular = (last_drive[1] + RAMP_ANG_S * dt) * (1 if angular > 0 else -1)
         last_drive[0], last_drive[1] = vel, abs(angular)
+    last_drive[2] = now
     chassis_pub.publish(float(vel), float(direction), float(angular))
 
 
