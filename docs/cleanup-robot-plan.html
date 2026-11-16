@@ -66,7 +66,7 @@ p { margin: 0; max-width: 65ch; }
 .scene { overflow-x: auto; background:
   linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 40px 40px,
   linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 40px 40px, var(--panel); }
-.scene svg { min-width: 560px; }
+.scene svg { display: block; width: 100%; min-width: 560px; }
 .readout { border-left: 1px solid var(--line); padding: 18px; display: grid; gap: 14px; align-content: start; }
 .state-chip { display: inline-flex; align-items: center; gap: 8px; font: 600 .95rem/1 var(--mono); letter-spacing: .06em;
   padding: 8px 12px; border-radius: 999px; border: 1.5px solid currentColor; width: fit-content; transition: color .25s, box-shadow .25s; }
@@ -208,11 +208,11 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="fig">
     <div class="scene-wrap">
       <div class="scene" aria-label="Animated top-down view of the robot finding and fetching the blue cube">
-        <svg id="world" viewBox="0 0 900 360" role="img" aria-labelledby="worldTitle">
+        <svg id="world" viewBox="0 0 900 620" role="img" aria-labelledby="worldTitle">
           <title id="worldTitle">Top-down floor: the robot with its front camera, arm and basket, the blue cube and three ignored objects</title>
           <g id="dyn"></g>
-          <line x1="24" y1="340" x2="57" y2="340" stroke="var(--muted)" stroke-width="2"/>
-          <text x="64" y="344" class="t">10 cm</text>
+          <line x1="24" y1="596" x2="57" y2="596" stroke="var(--muted)" stroke-width="2"/>
+          <text x="64" y="600" class="t">10 cm</text>
         </svg>
       </div>
       <aside class="readout" aria-live="polite">
@@ -299,11 +299,11 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         </defs>
         <path d="M210 210 L135 80 A150 150 0 0 1 285 80 Z" fill="var(--robot)" fill-opacity=".12" stroke="var(--robot)" stroke-opacity=".6"/>
         <path d="M200 160 h20 M210 150 v20" stroke="var(--ok)" stroke-width="2.5"/>
-        <path d="M204 160 C 140 168, 140 236, 186 232" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrM)"/>
+        <path d="M204 160 C 140 168, 140 250, 198 236" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrM)"/>
         <rect x="180" y="182" width="60" height="56" rx="8" fill="#23272d"/>
         <rect x="203" y="176" width="14" height="8" rx="2" fill="#c9ccd1" stroke="#8a8f96"/>
         <circle cx="210" cy="180" r="2" fill="#111"/>
-        <circle cx="196" cy="226" r="9" fill="#0e0f11" stroke="#4a4f57" stroke-dasharray="1.5 1.5"/>
+        <circle cx="210" cy="228" r="8" fill="#0e0f11" stroke="#4a4f57" stroke-dasharray="1.5 1.5"/>
         <polygon points="210,196 218,199 221,207 218,215 210,218 202,215 199,207 202,199" fill="#2a8be0" stroke="#1b5fa3"/>
         <rect x="174" y="188" width="6" height="14" rx="2" class="s-ink"/><rect x="240" y="188" width="6" height="14" rx="2" class="s-ink"/>
         <rect x="174" y="218" width="6" height="14" rx="2" class="s-ink"/><rect x="240" y="218" width="6" height="14" rx="2" class="s-ink"/>
@@ -694,18 +694,18 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   const TURRET = 0.032;                             // arm base, metres ahead of the centre
   const GRAB = 0.17;                                // grab point, metres ahead of the arm base
   const NEAR = 0.24, DRIVE = 0.07, FINE = 0.035, TURN = 0.5, AIM = 0.2 * FOV;
-  const BASKET = [-0.088, -0.056];                  // basket on the robot's back (forward, right), metres
+  const BASKET = [-0.09, 0];                        // basket in the middle of the robot's back (forward, right), metres
   const BASKET_ANG = Math.atan2(BASKET[1], BASKET[0] - TURRET);
   const BASKET_R = Math.hypot(BASKET[0] - TURRET, BASKET[1]);
   const CUBE = 0.045;
   const OBJ = [
-    { name: 'blue', col: '#2f8fe0', x: 2.42, y: 0.5 },
-    { name: 'red', col: '#d7343c', x: 0.98, y: 0.86 },
-    { name: 'wood', col: '#c9a77c', x: 1.08, y: 0.28 },
-    { name: 'yellow', col: '#e2c400', x: 2.12, y: 0.95 },
+    { name: 'blue', col: '#2f8fe0', x: 2.42, y: 0.78 },
+    { name: 'red', col: '#d7343c', x: 0.72, y: 1.42 },
+    { name: 'wood', col: '#c9a77c', x: 0.95, y: 0.42 },
+    { name: 'yellow', col: '#e2c400', x: 2.05, y: 1.5 },
   ];
   const objs = OBJ.map(o => ({ x: o.x, y: o.y }));
-  const R = { x: 1.52, y: 0.7, h: 2.8 };
+  const R = { x: 1.52, y: 0.98, h: 2.8 };
   const fwd = r => [Math.cos(r.h), Math.sin(r.h)];
   const toWorld = (r, f, s) => { const [c, n] = fwd(r); return [r.x + c * f - n * s, r.y + n * f + c * s]; };
   const relFrom = (ox, oy, h, p) => {
@@ -787,7 +787,6 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     el('rect', { x: -38, y: -27, width: 76, height: 54, rx: 7, fill: '#23272d', stroke: '#3c424a', 'stroke-width': 1.2 }, g);  // chassis
     el('rect', { x: -32, y: -22, width: 60, height: 44, rx: 5, fill: '#2c3138' }, g);
     for (let i = -3; i <= 3; i++) el('circle', { cx: i * 8 - 2, cy: 18, r: 1, fill: '#444a52' }, g);
-    el('rect', { x: -34, y: 6, width: 15, height: 12, rx: 1.5, fill: '#2f6b3a', stroke: '#3f8a4c', 'stroke-width': .8 }, g);  // Raspberry Pi
     el('rect', { x: 37, y: -8, width: 8, height: 16, rx: 2, fill: '#c9ccd1', stroke: '#8a8f96', 'stroke-width': .8 }, g);   // front camera
     el('circle', { cx: 43, cy: 0, r: 2.6, fill: '#111' }, g);
     el('circle', { cx: 43, cy: -5, r: .9, fill: '#e33' }, g);
