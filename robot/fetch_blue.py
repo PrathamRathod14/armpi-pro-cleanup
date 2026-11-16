@@ -17,7 +17,7 @@ from armpi_pro import bus_servo_control
 from kinematics import ik_transform
 
 MODE = sys.argv[1] if len(sys.argv) > 1 else 'full'
-ARM_ONLY = MODE in ('arm', 'look', 'vlm', 'calibgrab', 'frontlook')
+ARM_ONLY = MODE in ('arm', 'look', 'vlm', 'calibgrab', 'frontlook', 'frontarm')
 
 # ---------------- detection ----------------
 STRICT = ((95, 110, 120), (130, 255, 255))   # to FIND the cube: clearly blue and bright
@@ -902,6 +902,29 @@ def front_approach():
     return False
 
 
+def front_point():
+    """Wait until the front camera sees the blue cube steadily; returns its detection or None."""
+    say('Front camera: looking for the blue cube')
+    seq, seen, t0 = front.count, 0, time.time()
+    while not rospy.is_shutdown() and time.time() - t0 < 30:
+        seq, det = front.latest(seq)
+        if det:
+            seen += 1
+            if seen >= 3:
+                print('  front camera sees the blue cube at (%d, %d), %d pixels' % (det[0], det[1], det[4]))
+                return det
+        else:
+            seen = 0
+    return None
+
+
+def order_scan(cx):
+    """Look first on the side where the front camera saw the cube (left = low base values)."""
+    global SCAN
+    right = cx > FRONT_W / 2.0
+    SCAN = sorted(SCAN, key=lambda p: (0 if (p[0] > 500) == right else 1, abs(p[0] - 500), p[1]))
+
+
 def front_look():
     say('Front camera test - nothing moves. Ctrl+C to stop.')
     seq, n, seen, t_print = front.count, 0, 0, time.time()
@@ -940,7 +963,7 @@ def main():
     rospy.Subscriber('/usb_cam/image_raw/compressed', CompressedImage, on_image, queue_size=1, buff_size=2 ** 24)
     if MODE in ('vlm', 'calibgrab'):
         rospy.Subscriber(VLM_TOPIC, String, on_vlm, queue_size=1)
-    if MODE in ('front', 'frontlook'):
+    if MODE in ('front', 'frontlook', 'frontarm'):
         front = FrontTopic()
         print('Waiting for the front camera (front_cam.py must be running in another window)...')
         t_wait = time.time()
@@ -984,6 +1007,13 @@ def main():
         if rospy.is_shutdown():
             return
         print('--- Attempt %d of %d ---' % (attempt, MAX_TRIES))
+        if MODE == 'frontarm':
+            det = front_point()
+            if not det:
+                say('The front camera does not see the blue cube - place it in front of the robot')
+                time.sleep(3)
+                continue
+            order_scan(det[0])
         if MODE == 'front':
             arm_carry()
             if not front_search():
