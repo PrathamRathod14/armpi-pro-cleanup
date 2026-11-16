@@ -832,7 +832,7 @@ def calib_grab():
 # ---------------- front camera: ACEBOTT K210 module on the chassis ----------------
 FRONT_PORT = '/dev/ttyUSB0'
 FRONT_W, FRONT_H = 320, 240
-FRONT_BLUE = (20, 85, -25, 15, -70, -15)   # LAB colour range of the blue cube: L min/max, A min/max, B min/max
+FRONT_BLUE = (12, 85, -25, 35, -75, -12)   # LAB colour range of the blue cube: L min/max, A min/max, B min/max
 FRONT_RED = (20, 80, 30, 80, 0, 60)   # LAB colour range of the red cube
 FRONT_MIN_PIXELS = 60      # smallest blue patch (the cube far away is small)
 FRONT_VFLIP = 0            # 1 if the module's picture is upside down

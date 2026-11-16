@@ -16,7 +16,7 @@ from std_msgs.msg import String
 
 PORT = '/dev/ttyUSB0'
 FAST_BAUD = 1500000          # module sends pictures faster at this speed; 0 = stay at 115200
-BLUE = (20, 85, -25, 15, -70, -15)   # LAB range of the blue cube: L min/max, A min/max, B min/max
+BLUE = (12, 85, -25, 35, -75, -12)   # LAB range of the blue cube: L min/max, A min/max, B min/max
 RED = (20, 80, 30, 80, 0, 60)        # LAB range of the red cube (A positive = red)
 PICK_RED = True                      # also report red cubes
 MIN_PIXELS = 60              # smallest blue patch counted as the cube
