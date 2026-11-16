@@ -115,9 +115,9 @@ def on_image(msg):
     with lock:
         latest['seq'] += 1
         latest['strict'], latest['loose'], latest['size'] = strict, loose, (w, h)
-    for (cx, cy, a, (x, y, bw, bh)) in loose:
+    for (cx, cy, a, (x, y, bw, bh)) in [q[:4] for q in loose]:
         cv2.rectangle(img, (x, y), (x + bw, y + bh), (255, 160, 0), 1)
-    for i, (cx, cy, a, (x, y, bw, bh)) in enumerate(strict):
+    for i, (cx, cy, a, (x, y, bw, bh)) in enumerate([q[:4] for q in strict]):
         cv2.rectangle(img, (x, y), (x + bw, y + bh), (255, 0, 0), 3 if i == 0 else 1)
     if not ARM_ONLY or MODE == 'arm':
         cv2.drawMarker(img, (CENTRE_X, CENTRE_Y), (0, 255, 0), cv2.MARKER_CROSS, 24, 2)
@@ -773,6 +773,37 @@ class FrontCam(threading.Thread):
             pass
 
 
+class FrontTopic(object):
+    """Reads the front camera's detections from front_cam.py (topic /front_cam/target)."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.det, self.t, self.count = None, 0.0, 0
+        rospy.Subscriber('/front_cam/target', String, self.on_msg, queue_size=5)
+
+    def on_msg(self, m):
+        try:
+            d = json.loads(m.data)
+        except ValueError:
+            return
+        det = (d['cx'], d['cy'], d['w'], d['h'], d['pixels']) if d.get('found') else None
+        with self.lock:
+            self.det, self.t = det, time.time()
+            self.count += 1
+
+    def latest(self, last_count, timeout=1.0):
+        end = time.time() + timeout
+        while time.time() < end and not rospy.is_shutdown():
+            with self.lock:
+                if self.count != last_count:
+                    return self.count, self.det
+            time.sleep(0.01)
+        return last_count, None
+
+    def stop(self):
+        pass
+
+
 front = None
 
 
@@ -889,15 +920,13 @@ def main():
     if MODE in ('vlm', 'calibgrab'):
         rospy.Subscriber(VLM_TOPIC, String, on_vlm, queue_size=1)
     if MODE in ('front', 'frontlook'):
-        front = FrontCam(FRONT_PORT)
-        front.start()
-        rospy.on_shutdown(front.stop)
-        print('Starting the front camera program on the K210 module...')
+        front = FrontTopic()
+        print('Waiting for the front camera (front_cam.py must be running in another window)...')
         t_wait = time.time()
         while front.count == 0 and time.time() - t_wait < 25 and not rospy.is_shutdown():
             time.sleep(0.2)
         if front.count == 0:
-            print('No results from the front camera on %s - is the module plugged in with data?' % FRONT_PORT)
+            print('No results from the front camera - start it first in another window: python3 ~/front_cam.py')
             return
         print('Front camera running.')
     rospy.sleep(1.0)

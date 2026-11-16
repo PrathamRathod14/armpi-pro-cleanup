@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot Cameras</title>
+<style>
+  :root { --bg: #eef2f5; --panel: #ffffff; --ink: #142230; --muted: #586979; --line: #d3dce4; --accent: #2152c4; --ok: #157a3d; --bad: #b42020; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #0d141b; --panel: #151f29; --ink: #e5edf4; --muted: #95a5b4; --line: #283745; --accent: #7aa2ff; --ok: #4ccf7f; --bad: #ff6b6b; }
+  }
+  :root[data-theme="dark"] { --bg: #0d141b; --panel: #151f29; --ink: #e5edf4; --muted: #95a5b4; --line: #283745; --accent: #7aa2ff; --ok: #4ccf7f; --bad: #ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, "Segoe UI", sans-serif; padding: 16px; }
+  main { max-width: 1300px; margin: 0 auto; display: grid; gap: 16px; }
+  h1 { font-size: 1.4rem; margin: 0; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .bar label { color: var(--muted); font-size: .9rem; }
+  .bar select { flex: 1 1 140px; min-width: 0; max-width: 320px; }
+  main, .grid > * { min-width: 0; }
+  input, select, button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .cam { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; }
+  .cam header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .cam h2 { font-size: 1rem; margin: 0; }
+  .cam .state { font-size: .8rem; color: var(--muted); }
+  .cam .state.ok { color: var(--ok); }
+  .cam .state.bad { color: var(--bad); }
+  .view { background: #000; aspect-ratio: 4 / 3; display: grid; place-items: center; }
+  .view img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .view p { color: #aaa; padding: 16px; text-align: center; margin: 0; }
+  .cam footer { padding: 8px 12px; font-size: .85rem; color: var(--muted); }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Robot cameras</h1>
+  <div class="bar">
+    <label for="ip">Robot address</label>
+    <input id="ip" value="10.179.98.20" size="15" spellcheck="false">
+    <button class="primary" id="go" type="button">Show cameras</button>
+    <label for="armTopic">Arm camera view</label>
+    <select id="armTopic">
+      <option value="/usb_cam/image_raw">Plain picture</option>
+      <option value="/cleanup/image">With detection boxes</option>
+    </select>
+  </div>
+  <div class="grid">
+    <section class="cam">
+      <header><h2>Arm camera</h2><span class="state" id="armState">not started</span></header>
+      <div class="view" id="armView"><p>Press "Show cameras"</p></div>
+      <footer>The robot's own camera on the gripper, used for the final line-up and grab.</footer>
+    </section>
+    <section class="cam">
+      <header><h2>Front camera (ACEBOTT module)</h2><span class="state" id="frontState">not started</span></header>
+      <div class="view" id="frontView"><p>Press "Show cameras"</p></div>
+      <footer>Shows only while <code>python3 ~/front_cam.py</code> runs on the robot. Green box = blue cube found.</footer>
+    </section>
+  </div>
+</main>
+<script>
+(() => {
+  const ip = document.getElementById('ip');
+  try { const saved = localStorage.getItem('robotIp'); if (saved) ip.value = saved; } catch (e) {}
+  const show = (viewId, stateId, topic) => {
+    const view = document.getElementById(viewId), state = document.getElementById(stateId);
+    const host = ip.value.trim();
+    if (!/^[A-Za-z0-9.\-]+$/.test(host)) { state.textContent = 'invalid address'; state.className = 'state bad'; return; }
+    view.innerHTML = '';
+    const img = document.createElement('img');
+    img.alt = topic;
+    state.textContent = 'connecting...'; state.className = 'state';
+    let loaded = false;
+    img.onload = () => { loaded = true; state.textContent = 'live'; state.className = 'state ok'; };
+    setTimeout(() => {
+      if (!loaded && state.textContent === 'connecting...') {
+        state.textContent = 'waiting for pictures';
+        state.className = 'state bad';
+        const note = document.createElement('p');
+        note.textContent = topic.indexOf('front_cam') >= 0
+          ? 'No pictures yet. Start the front camera on the robot: python3 ~/front_cam.py'
+          : 'No pictures yet. Is the robot camera running?';
+        note.style.cssText = 'position:absolute';
+        view.style.position = 'relative';
+        view.appendChild(note);
+      }
+    }, 6000);
+    img.onerror = () => {
+      state.textContent = 'no picture'; state.className = 'state bad';
+      view.innerHTML = '<p>No picture. Is the robot on and reachable at this address' +
+        (topic.indexOf('front_cam') >= 0 ? ', and is front_cam.py running?' : '?') + '</p>';
+    };
+    img.src = 'http://' + host + ':8080/stream?topic=' + topic + '&t=' + Date.now();
+    view.appendChild(img);
+  };
+  const go = () => {
+    try { localStorage.setItem('robotIp', ip.value.trim()); } catch (e) {}
+    show('armView', 'armState', document.getElementById('armTopic').value);
+    show('frontView', 'frontState', '/front_cam/image');
+  };
+  document.getElementById('go').addEventListener('click', go);
+  document.getElementById('armTopic').addEventListener('change', go);
+})();
+</script>
+</body>
+</html>
