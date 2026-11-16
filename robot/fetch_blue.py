@@ -200,10 +200,81 @@ def visible(frames=8):
 
 
 # ---------------- motion ----------------
+VOICE = 'auto'             # 'auto' = talk if a speaker and espeak are there, else beep; 'beep'; 'off'
+VOICE_SPEED = 150          # words per minute
+OK, BAD, INFO = (0.08, 0.08), (0.45,), (0.04,)     # buzzer patterns (seconds of each beep)
+SAYINGS = [                # (start of a status message, what the robot says, beeps without a speaker)
+    ('Searching',               'Searching for cubes.', INFO),
+    ('Grabbing',                "I'm trying to grab it.", INFO),
+    ('Missed the cube',         'Oops, I missed. Trying again.', BAD),
+    ('Could not get hold',      'I could not get hold of it.', BAD),
+    ('Lost the cube',           'I lost the cube.', BAD),
+    ('The cube is still there', 'Hmm, the cube is still there. Trying again.', BAD),
+    ('Placing in the basket',   'Putting it in my basket.', INFO),
+    ('Done',                    'Done! The cube is in my basket.', OK),
+    ('Cube too far',            'That cube is too far for my arm. Please move it closer.', BAD),
+    ('Cube too close',          'That cube is too close. Please move it back a little.', BAD),
+    ('Cube a little too far',   'Moving a little closer.', INFO),
+    ('Finished',                'All done! Every cube is in my basket.', OK),
+    ('Gave up',                 'Sorry, I could not do it.', BAD),
+    ('The front camera does not see', "I can't see any cube.", BAD),
+    ('The front camera sees no', "I can't see any cube.", BAD),
+    ('No blue cube found',      "I can't find any cube.", BAD),
+    ('No cube found',           "I can't find any cube.", BAD),
+]
+_voice_q, _voice_cmd, _voice_last = None, None, {}
+
+
+def _voice_worker():
+    import subprocess
+    while True:
+        text, beeps = _voice_q.get()
+        try:
+            if _voice_cmd:
+                subprocess.call(_voice_cmd + [text], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            elif buzzer_pub is not None:
+                for b in beeps:
+                    buzzer_pub.publish(b)
+                    time.sleep(b + 0.12)
+        except Exception as e:
+            print('  (voice: %s)' % e)
+
+
+def talk(text, beeps=INFO):
+    """Say something in the background (or beep). The same sentence is not repeated within 15 s."""
+    global _voice_q, _voice_cmd
+    if VOICE == 'off' or time.time() - _voice_last.get(text, 0) < 15:
+        return
+    _voice_last[text] = time.time()
+    if _voice_q is None:
+        import queue, shutil
+        _voice_q = queue.Queue()
+        if VOICE == 'auto':
+            for prog in ('espeak-ng', 'espeak', 'spd-say'):
+                if shutil.which(prog):
+                    _voice_cmd = [prog, '-s', str(VOICE_SPEED)] if prog != 'spd-say' else [prog, '-w']
+                    break
+        print('  (voice: %s)' % ('talking with ' + _voice_cmd[0] if _voice_cmd else 'buzzer beeps'))
+        threading.Thread(target=_voice_worker, daemon=True).start()
+    while _voice_q.qsize() >= 2:               # never fall behind: drop the oldest waiting sentence
+        try:
+            _voice_q.get_nowait()
+        except Exception:
+            break
+    print('  robot says: "%s"' % text)
+    _voice_q.put((text, beeps))
+
+
 def say(text):
     global status
     status = text
     print(text)
+    for start, words, beeps in SAYINGS:
+        if text.startswith(start):
+            talk(words, beeps)
+            break
+    if text.startswith('Cube ') and 'in the basket' in text:
+        talk('Done! Looking for the next one.', OK)
 
 
 def pause(sec):
@@ -466,6 +537,7 @@ def grab(base, reach, pitch, wrist=500):
 
 
 def carry():
+    talk('Got it! I picked up the cube.', OK)
     servos(1500, ((1, GRIP_CLOSE + GRIP_EXTRA), (2, 500), (3, 80), (4, 825), (5, 625), (6, 500)))
     pause(1.6)
 
@@ -1098,6 +1170,7 @@ def main():
         print('Arm only: the wheels will not move. Put the cube 12-25 cm in front. Ctrl+C stops.')
     else:
         print('This mode DRIVES. Use it on the floor. Press Ctrl+C to stop.')
+    talk('Hello! I am looking for cubes to put in my basket.', INFO)
     if not ARM_ONLY:
         mv = battery_mv()
         if mv is not None:
