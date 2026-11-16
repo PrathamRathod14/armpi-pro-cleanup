@@ -126,7 +126,7 @@ number address instead (run `hostname -I` on the robot), for example `http://10.
 | `2` | Ready pose: arm down, gripper open, fingertips at the bottom of the picture |
 | `c` | Grab spot: where an object sits in the picture when the gripper can take it |
 | `3` | Grip pose: grabbing height and how far the gripper closes |
-| `4` | Drop pose: arm turned left and lowered, object resting on the floor |
+| `4` | Drop pose: arm turned round over the basket on the robot's back, cube held just above the opening |
 | `v` / `x` | Show what is saved / quit |
 
 Movement keys are the same as in `teleop_keys.py`: `w s a d q e` for the wheels, `j/l i/k

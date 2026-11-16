@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Blue Cube Fetch</title>
+<title>Cube Fetch Robot</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -200,16 +200,16 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 <!-- ============ HERO ============ -->
 <section class="hero">
   <div class="hero-text">
-    <span class="eyebrow">ArmPi Pro · blue cube fetch</span>
-    <h1>Find the blue cube, pick it up, put it in the basket</h1>
-    <p class="lede">A Hiwonder ArmPi Pro turns until its front camera sees the blue cube, drives to it, lets its arm camera line up the grab, picks the cube up and drops it into the basket on its back. Other objects are ignored: the robot steers only by where blue appears in the pictures. The arm is placed over the cube with inverse kinematics, so it can grab the cube wherever it lies within reach; an arm-only mode keeps the wheels still. A YOLO-World model on the laptop can now find the object by name and send its position to the robot.</p>
+    <span class="eyebrow">ArmPi Pro · blue and red cube fetch</span>
+    <h1>Find the blue and red cubes, pick them up, put them in the basket</h1>
+    <p class="lede">A Hiwonder ArmPi Pro turns until its front camera sees a blue or red cube, drives to it, lets its arm camera line up the grab, picks the cube up and drops it into the basket on its back, then looks for the next one until none is left. Other objects are ignored: the robot steers only by where blue or red appears in the pictures. It checks the cube is really in the gripper before going to the basket, and grabs again on the spot if it missed. The arm is placed over the cube with inverse kinematics, so it can grab the cube wherever it lies within reach; an arm-only mode keeps the wheels still. A YOLO-World model on the laptop can now find the object by name and send its position to the robot.</p>
   </div>
 
   <div class="fig">
     <div class="scene-wrap">
-      <div class="scene" aria-label="Animated top-down view of the robot finding and fetching the blue cube">
+      <div class="scene" aria-label="Animated top-down view of the robot fetching the blue cube, then the red cube">
         <svg id="world" viewBox="0 0 900 620" role="img" aria-labelledby="worldTitle">
-          <title id="worldTitle">Top-down floor: the robot with its front camera, arm and basket, the blue cube and three ignored objects</title>
+          <title id="worldTitle">Top-down floor: the robot with its front camera, arm and basket, a blue and a red cube to pick and two ignored objects</title>
           <g id="dyn"></g>
           <line x1="24" y1="596" x2="57" y2="596" stroke="var(--muted)" stroke-width="2"/>
           <text x="64" y="600" class="t">10 cm</text>
@@ -277,9 +277,10 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <rect x="120" y="54" width="54" height="44" rx="6" class="s-robot"/>
         <rect x="140" y="14" width="18" height="18" rx="4" fill="#2f7fd8"/>
         <circle cx="149" cy="23" r="15" fill="none" stroke="var(--robot)" stroke-width="2"/>
-        <rect x="56" y="30" width="18" height="18" rx="4" fill="#d7343c" fill-opacity=".55"/>
+        <rect x="56" y="30" width="18" height="18" rx="4" fill="#d7343c"/>
+        <circle cx="65" cy="39" r="15" fill="none" stroke="var(--robot)" stroke-width="2"/>
         <rect x="82" y="74" width="18" height="18" rx="4" fill="#c9a77c" fill-opacity=".55"/>
-        <text x="40" y="112" class="t">red, wood: ignored</text>
+        <text x="40" y="112" class="t">blue, red: picked · wood: ignored</text>
       </svg>
       <h3>Other cubes in view</h3>
       <p>The red and wooden cubes look just as cube-like. Only the colour tells them apart, so detection keeps blue pixels and throws everything else away.</p>
@@ -392,7 +393,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <div class="stack">
       <p class="rule">The wheels and the arm never move at the same time.</p>
       <p>The robot stops driving before the arm moves, and the arm finishes before the wheels move again. Every step is easy to watch and easy to stop with Ctrl+C, and a swinging arm never meets a moving floor.</p>
-      <p class="callout">If the blue cube leaves the picture for 2 seconds, the robot stops and searches again, up to three times. It never keeps driving toward where it thinks the cube was.</p>
+      <p class="callout">If the cube leaves the picture for 2 seconds, the robot stops and searches again, up to three times. It never keeps driving toward where it thinks the cube was.</p>
       <div class="fig">
         <svg viewBox="0 0 420 270" role="img" aria-labelledby="picT">
           <title id="picT">How the camera picture steers the robot</title>
@@ -443,8 +444,8 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <div class="rule-card"><h3 class="mono">fetch_blue.py arm</h3><p>The wheels never move. The arm looks around in front of the robot, places the gripper over the cube with IK, grabs it and puts it in the basket. If the cube is out of the arm's reach it asks you to move it. Safe on a table.</p><span class="pill untested">works, being tuned</span></div>
     <div class="rule-card"><h3 class="mono">fetch_blue.py</h3><p>The full version. The robot turns to find the cube anywhere around it, drives up to it, then does the same IK grab, creeping the wheels if the cube is just out of reach. Floor only.</p><span class="pill later">after arm-only works</span></div>
     <div class="rule-card"><h3 class="mono">fetch_blue.py vlm</h3><p>The laptop runs YOLO-World and sends the object's position; the robot lines the gripper up step by step from it, then grabs and places it in the basket. Run <span class="mono">vlm_bridge.py</span> on the laptop at the same time. Wheels never move.</p><span class="pill untested">written, robot test pending</span></div>
-    <div class="rule-card"><h3 class="mono">fetch_blue.py frontarm</h3><p>The front camera (ACEBOTT module) finds the blue cube among other objects; the arm camera and IK grab it; it goes into the basket. Wheels never move. Run <span class="mono">front_cam.py</span> in a second window. <b>This is the current step.</b></p><span class="pill next">written, robot test next</span></div>
-    <div class="rule-card"><h3 class="mono">fetch_blue.py front</h3><p>The full goal: the front camera finds the blue cube farther away, the wheels drive to it with gentle starts, then the arm grabs it and puts it in the basket. Refuses to drive below 7.2 V. Floor only.</p><span class="pill untested">first run cut out: battery 6.7 V</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py frontarm</h3><p>The front camera (ACEBOTT module) finds a blue or red cube among other objects; the arm camera centres exactly over it, grabs, checks it is held and puts it in the basket; then the next cube. Wheels never move. Run <span class="mono">front_cam.py</span> in a second window. <b>This is the current step.</b></p><span class="pill built">grab working; red to test</span></div>
+    <div class="rule-card"><h3 class="mono">fetch_blue.py front</h3><p>The full goal: the front camera finds a blue or red cube farther away, the wheels drive to it with gentle starts, then the arm grabs it and puts it in the basket. Refuses to drive below 7.2 V. Floor only.</p><span class="pill untested">first run cut out: battery 6.7 V</span></div>
   </div>
   <div class="metrics">
     <span class="metric"><b>SLOW</b> 2 = half speed, 3 = a third</span>
@@ -514,8 +515,9 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   </div>
   <div class="rules" style="margin-top:20px">
     <div class="rule-card"><h3>Still to do</h3><p>
-      1. <b>Now:</b> <span class="mono">fetch_blue.py frontarm</span> with several objects: front camera finds the blue cube, arm grabs it into the basket.<br>
-      2. Check the front camera's green box marks only the blue cube; tune its colour range if not.<br>
+      <b>Done:</b> grab with the arm camera (<span class="mono">frontarm</span>) works; the cube is checked to be in the gripper before going to the basket (<span class="mono">patch_holdcheck.py</span>, tested on the robot).<br>
+      1. <b>Now:</b> apply <span class="mono">patch_arrange.py</span> (exact centring + settle squeeze) and <span class="mono">patch_red.py</span>; run <span class="mono">frontarm</span> with a blue, a red and a yellow cube: blue and red end up in the basket, yellow stays.<br>
+      2. Check the red range on both cameras (the boxes in the camera view); tune with <span class="mono">front_cam.py stats</span> if needed.<br>
       3. Run <span class="mono">calibgrab</span> and confirm the grab lands centred.<br>
       4. With a full battery: <span class="mono">fetch_blue.py front</span> on the floor (driving).<br>
       5. Laptop vision: phase 4 robot test (<span class="mono">vlm</span>), phase 5 tests, moving-cube check.</p></div>
@@ -529,7 +531,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   <div class="section-head">
     <span class="eyebrow">Two cameras</span>
     <h2>The front camera finds, the arm camera grabs</h2>
-    <p class="lede">The ACEBOTT AI vision module is mounted low on the front of the chassis. It looks for the blue cube on its own chip and tells the robot where it is; the arm camera then takes over for the precise grab.</p>
+    <p class="lede">The ACEBOTT AI vision module is mounted low on the front of the chassis. It looks for blue and red cubes on its own chip and tells the robot where the biggest one is; the arm camera then takes over for the precise grab.</p>
   </div>
   <div class="rules">
     <div class="rule-card"><h3>front_cam.py</h3><p>Stops ACEBOTT's program on the module (release the reset lines, wait about 6 s, repeated Ctrl-C), sends it a small CanMV program, and turns its output into ROS topics: <span class="mono">/front_cam/image</span> (the picture) and <span class="mono">/front_cam/target</span> (cube at x, y). Tries 1.5 Mbaud for smooth pictures and falls back to 115200. Nothing is saved on the module: switching it off and on brings ACEBOTT's program back.</p><span class="pill built">pictures working</span></div>
@@ -571,7 +573,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <article class="tile"><h3>With other cubes</h3><p>Red and wooden cubes nearby. The robot must go only for blue.</p></article>
   </div>
   <div class="metrics">
-    <span class="metric"><b>Success</b> runs that end with the blue cube in the basket</span>
+    <span class="metric"><b>Success</b> runs that end with every blue and red cube in the basket</span>
     <span class="metric"><b>Wrong cube</b> another cube approached or grabbed (goal: zero)</span>
     <span class="metric"><b>Missed grabs</b> gripper closed on nothing</span>
     <span class="metric"><b>Time</b> seconds from start to placed</span>
@@ -657,7 +659,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   </div>
 </section>
 
-<footer>ArmPi Pro blue cube fetch · status 17 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour, not recorded robot data.</footer>
+<footer>ArmPi Pro cube fetch · status 16 November 2026. Code: github.com/PrathamRathod14/armpi-pro-cleanup. The animation shows the intended behaviour, not recorded robot data.</footer>
 </main>
 
 <script>
@@ -674,12 +676,12 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 
   /* ---------- state explainer ---------- */
   const NOTES = {
-    SEARCH: ['Search', 'Arm folded. The robot turns on the spot until the front camera sees blue in three pictures in a row. Red, wooden, yellow or anything else that is not blue is ignored. After 45 seconds with no blue, it gives up.'],
+    SEARCH: ['Search', 'Arm folded. The robot turns on the spot until the front camera sees a blue or red cube in three pictures in a row. Wooden, yellow or anything else is ignored. After each cube goes into the basket it searches again for the next one.'],
     APPROACH: ['Approach', 'Steered by the front camera: turn until the cube is in the centre of its picture, then drive forward with gentle starts. Lost for 2 seconds: back to searching.'],
     LINE_UP: ['Line up', 'The arm camera takes over. The arm points the gripper straight down and the robot lines up until the cube sits on the calibrated grab point.'],
     PICK: ['Pick', 'The wrist turns to match the cube\'s sides and the arm centres exactly over it. It lowers, closes once so the fingers push the cube to the middle, loosens, closes firmly and lifts. The arm camera checks the cube is in the gripper; if it is still on the floor, it grabs again before going to the basket.'],
     PLACE: ['Into the basket', 'Holding the cube high, the arm swings round to the basket on the robot\'s back, moves slowly over it and opens: the cube drops in. Then it lifts back before turning to the front.'],
-    DONE: ['Finished', 'The cube is in the basket, or no blue was found after three tries. The robot stops with the arm raised.'],
+    DONE: ['Finished', 'No blue or red cube is left in view (or none was found after several tries). The robot stops with the arm raised and says how many cubes it put in the basket.'],
   };
   const note = document.getElementById('stateNote');
   const states = document.querySelectorAll('.fsm g.st');
@@ -700,11 +702,14 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   const CUBE = 0.045;
   const OBJ = [
     { name: 'blue', col: '#2f8fe0', x: 2.42, y: 0.78 },
-    { name: 'red', col: '#d7343c', x: 0.72, y: 1.42 },
+    { name: 'red', col: '#d7343c', x: 1.35, y: 1.45 },
     { name: 'wood', col: '#c9a77c', x: 0.95, y: 0.42 },
     { name: 'yellow', col: '#e2c400', x: 2.05, y: 1.5 },
   ];
   const objs = OBJ.map(o => ({ x: o.x, y: o.y }));
+  const TARGETS = [0, 1];                           // blue and red are picked; the others are ignored
+  const SLOTS = [[-0.004, -0.015], [0.006, 0.015]];  // where each cube ends up inside the basket
+  const isTarget = k => TARGETS.includes(k);
   const R = { x: 1.52, y: 0.98, h: 2.8 };
   const fwd = r => [Math.cos(r.h), Math.sin(r.h)];
   const toWorld = (r, f, s) => { const [c, n] = fwd(r); return [r.x + c * f - n * s, r.y + n * f + c * s]; };
@@ -719,15 +724,19 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   const lerp = (a, b, u) => a + (b - a) * Math.max(0, Math.min(1, u));
   const ease = u => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
 
+  let cur = 0, inB = OBJ.map(() => -1), nIn = 0;
   let phase = 'SEARCH', pt = 0, seen = 0, okT = 0, carry = false, placed = false, grip = 1, armAng = 0, reach = GRAB, lift = 0, t = 0;
   const go = p => { phase = p; pt = 0; };
   const frames = [];
   for (let guard = 0; guard < 40000; guard++) {
     let turning = false;
-    const B = objs[0];
     if (phase === 'SEARCH') {
-      if (frontSees(R, [B.x, B.y])) { seen += DT; if (seen >= 0.3) { seen = 0; go('APPROACH'); } }
+      const vis = TARGETS.filter(k => inB[k] < 0 && frontSees(R, [objs[k].x, objs[k].y]));
+      if (vis.length) { cur = vis[0]; seen += DT; if (seen >= 0.3) { seen = 0; go('APPROACH'); } }
       else { seen = 0; R.h += TURN * DT; turning = true; }
+    }
+    const B = objs[cur];
+    if (phase === 'SEARCH') {
     } else if (phase === 'APPROACH') {
       const q = relFrom(R.x, R.y, R.h, [B.x, B.y]), close = q.d <= NEAR + TURRET;
       if (close && Math.abs(q.b) < AIM) go('LINE_UP');
@@ -746,16 +755,19 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     } else if (phase === 'PLACE') {
       const u = ease(pt / 3.0);
       armAng = lerp(0, BASKET_ANG, u); reach = lerp(GRAB, BASKET_R, u);
-      if (pt >= 3.0 && carry) { grip = lerp(0.32, 1, (pt - 3.0) / 0.7); if (pt >= 3.7) { carry = false; placed = true; } }
+      if (pt >= 3.0 && carry) { grip = lerp(0.32, 1, (pt - 3.0) / 0.7); if (pt >= 3.7) { carry = false; placed = true; inB[cur] = nIn++; } }
       if (pt >= 3.9) { const v = ease((pt - 3.9) / 2.6); armAng = lerp(BASKET_ANG, 0, v); reach = lerp(BASKET_R, GRAB, v); lift = 1 - v * 0.6; }
-      if (pt >= 6.6) { grip = 1; go('DONE'); }
+      if (pt >= 6.6) {
+        grip = 1; armAng = 0; reach = GRAB; lift = 0; okT = 0; placed = false;
+        go(TARGETS.some(k => inB[k] < 0) ? 'SEARCH' : 'DONE');
+      }
     }
     if (carry) {
       const a = R.h + armAng, base = toWorld(R, TURRET, 0);
       B.x = base[0] + Math.cos(a) * reach; B.y = base[1] + Math.sin(a) * reach;
     }
-    if (placed) { const p = toWorld(R, BASKET[0], BASKET[1]); B.x = p[0]; B.y = p[1]; }
-    frames.push({ t, phase, pt, turning, R: { x: R.x, y: R.y, h: R.h }, O: objs.map(o => [o.x, o.y]), carry, placed, grip, armAng, reach, lift,
+    objs.forEach((o, k) => { if (inB[k] >= 0) { const sl = SLOTS[inB[k]], p = toWorld(R, BASKET[0] + sl[0], BASKET[1] + sl[1]); o.x = p[0]; o.y = p[1]; } });
+    frames.push({ t, phase, pt, turning, R: { x: R.x, y: R.y, h: R.h }, O: objs.map(o => [o.x, o.y]), cur, inB: inB.slice(), carry, placed, grip, armAng, reach, lift,
                   dist: frontRel(R, [B.x, B.y]).d });
     t += DT; pt += DT;
     if (phase === 'DONE' && pt > 2.5) break;
@@ -794,7 +806,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     el('circle', { cx: bx, cy: by, r: 12, fill: '#0e0f11' }, g);
     el('circle', { cx: bx, cy: by, r: 10.5, fill: 'none', stroke: '#4a4f57', 'stroke-width': 1.2, 'stroke-dasharray': '1.4 1.4' }, g);
     el('circle', { cx: bx, cy: by, r: 7, fill: 'none', stroke: '#2b2f35', 'stroke-width': 1, 'stroke-dasharray': '1.2 1.6' }, g);
-    if (f.placed) cube(g, 0, bx - 1, by + 1, CUBE * U * 0.82, 20, false);
+    f.inB.forEach((s, k) => { if (s >= 0) cube(g, k, bx + SLOTS[s][0] * U, by + SLOTS[s][1] * U, CUBE * U * 0.82, 20 + 25 * s, false); });
     return g;
   };
 
@@ -815,7 +827,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     el('circle', { cx: tx, cy: 0, r: 6, fill: DARK, stroke: '#4d535b', 'stroke-width': 1.2 }, g);
     el('circle', { cx: ex, cy: ey, r: 5, fill: DARK, stroke: ARM, 'stroke-width': 1.5 }, g);
     el('rect', { x: -4, y: -4, width: 8, height: 8, rx: 1.5, fill: '#30343a', transform: `translate(${wx} ${wy}) rotate(${a * 180 / Math.PI})` }, g);  // arm camera
-    if (f.carry) cube(g, 0, tx + c * (L + 2), s * (L + 2), CUBE * U * (1 + 0.15 * f.lift), a * 180 / Math.PI, false);
+    if (f.carry) cube(g, f.cur, tx + c * (L + 2), s * (L + 2), CUBE * U * (1 + 0.15 * f.lift), a * 180 / Math.PI, false);
     const gapHalf = 4.5 + 5 * f.grip, palmX = tx + c * (L - 6), palmY = s * (L - 6);
     el('line', { x1: palmX + px * (gapHalf + 2), y1: palmY + py * (gapHalf + 2), x2: palmX - px * (gapHalf + 2), y2: palmY - py * (gapHalf + 2), stroke: DARK, 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
     [-1, 1].forEach(k => {
@@ -840,10 +852,11 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       el('path', { d: `M${gp[0] * PX - 7} ${gp[1] * PX} h14 M${gp[0] * PX} ${gp[1] * PX - 7} v14`, stroke: 'var(--ok)', 'stroke-width': 2 }, gDyn);
     }
     f.O.forEach((p, k) => {
-      if (k === 0 && (f.carry || f.placed)) return;
+      if (f.inB[k] >= 0 || (k === f.cur && f.carry)) return;
       cube(gDyn, k, p[0] * PX, p[1] * PX, CUBE * PX, k * 17, false);
-      if (k !== 0) txt(gDyn, p[0] * PX, p[1] * PX + 24, OBJ[k].name + ' · ignored', 't', 'middle');
-      else if (f.phase !== 'SEARCH') el('circle', { cx: p[0] * PX, cy: p[1] * PX, r: 17, fill: 'none', stroke: 'var(--ok)', 'stroke-width': 2, 'stroke-dasharray': '5 4' }, gDyn);
+      if (!isTarget(k)) txt(gDyn, p[0] * PX, p[1] * PX + 24, OBJ[k].name + ' · ignored', 't', 'middle');
+      else if (k !== f.cur || f.phase === 'SEARCH') txt(gDyn, p[0] * PX, p[1] * PX + 24, OBJ[k].name + ' · to pick', 't', 'middle', { fill: 'var(--ok)' });
+      else el('circle', { cx: p[0] * PX, cy: p[1] * PX, r: 17, fill: 'none', stroke: 'var(--ok)', 'stroke-width': 2, 'stroke-dasharray': '5 4' }, gDyn);
     });
     drawRobot(gDyn, f);
     drawArm(gDyn, f);
@@ -856,15 +869,15 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     for (let k = 0; k < 6; k++) el('line', { x1: 80 - 70 * (1 + k), y1: 120, x2: 80 - 6 * k, y2: 30, stroke: '#b9bdc2', 'stroke-width': .6 }, cam);
     const c0 = camOf(f.R);
     f.O.map((p, k) => ({ k, q: frontRel(f.R, p) }))
-      .filter(o => !(o.k === 0 && (f.carry || f.placed)))
+      .filter(o => !(f.inB[o.k] >= 0 || (o.k === f.cur && f.carry)))
       .sort((a, b) => b.q.d - a.q.d)
       .forEach(({ k, q }) => {
         if (Math.abs(q.b) > FOV * 1.1 || q.d > RANGE * 1.05 || q.d < 0.04) return;
         const sz = Math.min(44, 3.4 / q.d), x = 80 + q.b / FOV * 80, y = 120 * (0.3 + 0.6 * Math.min(1, 0.1 / q.d));
         cube(cam, k, x, y - sz / 2, sz, 0, false);
-        if (k === 0 && Math.abs(q.b) < FOV && q.d < RANGE) {
+        if (isTarget(k) && Math.abs(q.b) < FOV && q.d < RANGE) {
           el('rect', { x: x - sz / 2 - 2, y: y - sz - 2, width: sz + 4, height: sz + 4, fill: 'none', stroke: '#18c24a', 'stroke-width': 1.6 }, cam);
-          txt(cam, x - sz / 2 - 2, y - sz - 5, 'blue', 't-cam', 'start', { fill: '#0e8f34' });
+          txt(cam, x - sz / 2 - 2, y - sz - 5, OBJ[k].name, 't-cam', 'start', { fill: '#0e8f34' });
         }
       });
     void c0;
@@ -878,19 +891,20 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     if (f.phase === 'PLACE' && f.pt > 2.4 && f.pt < 4.4) {
       el('circle', { cx: 80, cy: 70, r: 46, fill: '#101113' }, cam);
       for (let r = 12; r < 46; r += 7) el('circle', { cx: 80, cy: 70, r, fill: 'none', stroke: '#2c3036', 'stroke-width': 1, 'stroke-dasharray': '2 2' }, cam);
-      if (releasedInBasket) cube(cam, 0, 82, 74, 22, 15, false);
+      f.inB.forEach((s, k) => { if (s >= 0 && k !== f.cur) cube(cam, k, 66 + 26 * s, 64 + 8 * s, 22, 15 + 30 * s, false); });
+      if (releasedInBasket) cube(cam, f.cur, 82, 74, 22, 15, false);
     } else if (f.phase !== 'PLACE') {
       f.O.forEach((p, k) => {
-        if (k === 0 && (f.carry || f.placed)) return;
+        if (f.inB[k] >= 0 || (k === f.cur && f.carry)) return;
         const dx = p[0] - gp[0], dy = p[1] - gp[1], along = dx * c + dy * n, side = -dx * n + dy * c;
         const x = 80 + side * S, y = 84 - along * S;
         if (x < -40 || x > 200 || y < -40 || y > 160) return;
         cube(cam, k, x, y, CUBE * S, 0, false);
-        if (k === 0) el('rect', { x: x - CUBE * S / 2 - 3, y: y - CUBE * S / 2 - 3, width: CUBE * S + 6, height: CUBE * S + 6, fill: 'none', stroke: '#2f6fe0', 'stroke-width': 1.4 }, cam);
+        if (k === f.cur) el('rect', { x: x - CUBE * S / 2 - 3, y: y - CUBE * S / 2 - 3, width: CUBE * S + 6, height: CUBE * S + 6, fill: 'none', stroke: '#2f6fe0', 'stroke-width': 1.4 }, cam);
       });
       el('path', { d: 'M70 84 H90 M80 74 V94', stroke: '#13a34a', 'stroke-width': 2 }, cam);
     }
-    if (f.carry && !releasedInBasket) cube(cam, 0, 80, 92, 30, 0, false);
+    if (f.carry && !releasedInBasket) cube(cam, f.cur, 80, 92, 30, 0, false);
     const off = 16 + 16 * f.grip;
     el('rect', { x: 80 - off - 10, y: 78, width: 10, height: 46, rx: 3, fill: DARK }, cam);
     el('rect', { x: 80 + off, y: 78, width: 10, height: 46, rx: 3, fill: DARK }, cam);
@@ -903,17 +917,18 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
   const reasonFor = (f, ignored) => {
     switch (f.phase) {
       case 'SEARCH': return ignored.length
-        ? `Front camera: the ${ignored.join(' and ')} cube${ignored.length > 1 ? 's are' : ' is'} in view, but not blue, so the robot keeps turning.`
-        : 'Arm folded. Turning on the spot until the front camera sees blue.';
+        ? `Front camera: the ${ignored.join(' and ')} cube${ignored.length > 1 ? 's are' : ' is'} in view, but not blue or red, so the robot keeps turning.`
+        : f.inB.some(s => s >= 0) ? 'One cube is in the basket. Turning to find the next blue or red cube.'
+        : 'Arm folded. Turning on the spot until the front camera sees a blue or red cube.';
       case 'APPROACH': return f.turning
-        ? 'The front camera sees blue off to one side, so the robot turns toward it.'
-        : 'Blue is centred in the front camera, so the robot drives toward it.';
+        ? `The front camera sees the ${OBJ[f.cur].name} cube off to one side, so the robot turns toward it.`
+        : `The ${OBJ[f.cur].name} cube is centred in the front camera, so the robot drives toward it.`;
       case 'LINE_UP': return 'Close now. The arm camera takes over and the robot lines the cube up with the green cross, the calibrated grab point.';
       case 'PICK': return f.carry ? 'Checked: the cube is in the gripper, not on the floor. Now to the basket.' : 'The wrist turns to match the cube, the arm lowers and the gripper closes on it.';
-      case 'PLACE': return f.placed ? 'The cube is in the basket. The arm lifts and turns back to the front.'
+      case 'PLACE': return f.placed ? `The ${OBJ[f.cur].name} cube is in the basket. The arm lifts and turns back to the front.`
         : f.pt > 3.0 ? 'Over the basket: the gripper opens and the cube drops in.'
         : 'Holding the cube high, the arm swings round to the basket on the robot\'s back.';
-      default: return 'The blue cube is in the basket. Done.';
+      default: return 'The blue and the red cube are both in the basket. No more cubes to pick: done.';
     }
   };
 
@@ -927,11 +942,11 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     i = Math.max(0, Math.min(N, i));
     const f = frames[i];
     drawWorld(f, i); drawCam(f);
-    const ignored = OBJ.map((o, k) => k).filter(k => k !== 0 && frontSees(f.R, f.O[k])).map(k => OBJ[k].name);
+    const ignored = OBJ.map((o, k) => k).filter(k => !isTarget(k) && frontSees(f.R, f.O[k])).map(k => OBJ[k].name);
     chip.className = 'state-chip ' + (f.phase === 'PLACE' ? 'PLACE' : f.phase); chip.textContent = LABEL[f.phase];
     reason.textContent = reasonFor(f, ignored);
     const tracking = f.phase !== 'SEARCH' && f.phase !== 'DONE';
-    kvTarget.textContent = tracking ? 'blue cube' : '–';
+    kvTarget.textContent = tracking ? OBJ[f.cur].name + ' cube' : '–';
     kvDist.textContent = tracking && !f.carry && !f.placed ? Math.round(f.dist * 100) + ' cm' : '–';
     kvGrip.textContent = f.grip > 0.8 ? 'open' : 'closed';
     kvIgnored.textContent = usesFront(f) ? 'front' : 'arm';
