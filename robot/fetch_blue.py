@@ -62,6 +62,10 @@ FINE_TARGET, FINE_DEADBAND = 8, 4   # exact centring before grabbing (pixels)
 SETTLE_OPEN = 300          # loosen to this after the first close so the cube settles in the middle
 GRAB_TRIES = 3             # grabs on the spot before starting the whole attempt again
 HELD_GROWTH = 1.8          # cube in the gripper looks at least this much bigger than on the floor
+REACH_TRIM = 0.0           # metres: + if the gripper lands SHORT of the cube (in front of it), - if it goes past it
+BASE_TRIM = 0              # base servo units: + / - if the gripper lands to one side of the cube (about 4 units = 1 degree)
+HOLD_CHECK = False         # True = after grabbing, look whether the cube is in the gripper (was unreliable)
+GRIP_SPEED = 900           # ms for the fingers to close (slower = cube is pushed less)
 SCAN = [(500, 0.15), (400, 0.15), (600, 0.15), (500, 0.22), (400, 0.22), (600, 0.22)]
 # -------------------------------------
 
@@ -205,87 +209,22 @@ def visible(frames=8):
 
 
 # ---------------- motion ----------------
-VOICE = 'auto'             # 'auto' = talk if a speaker and espeak are there, else beep; 'beep'; 'off'
-VOICE_SPEED = 150          # words per minute
-OK, BAD, INFO = (0.08, 0.08), (0.45,), (0.04,)     # buzzer patterns (seconds of each beep)
-SAYINGS = [                # (start of a status message, what the robot says, beeps without a speaker)
-    ('Searching',               'Searching for cubes.', INFO),
-    ('Grabbing',                "I'm trying to grab it.", INFO),
-    ('Missed the cube',         'Oops, I missed. Trying again.', BAD),
-    ('Could not get hold',      'I could not get hold of it.', BAD),
-    ('Lost the cube',           'I lost the cube.', BAD),
-    ('The cube is still there', 'Hmm, the cube is still there. Trying again.', BAD),
-    ('Placing in the basket',   'Putting it in my basket.', INFO),
-    ('Done',                    'Done! The cube is in my basket.', OK),
-    ('Cube too far',            'That cube is too far for my arm. Please move it closer.', BAD),
-    ('Cube too close',          'That cube is too close. Please move it back a little.', BAD),
-    ('Cube a little too far',   'Moving a little closer.', INFO),
-    ('Finished',                'All done! Every cube is in my basket.', OK),
-    ('Gave up',                 'Sorry, I could not do it.', BAD),
-    ('The front camera does not see', "I can't see any cube.", BAD),
-    ('The front camera sees no', "I can't see any cube.", BAD),
-    ('No blue cube found',      "I can't find any cube.", BAD),
-    ('No cube found',           "I can't find any cube.", BAD),
-]
-_voice_q, _voice_cmd, _voice_last = None, None, {}
-
-
-def _voice_worker():
-    import subprocess
-    while True:
-        text, beeps = _voice_q.get()
-        try:
-            if _voice_cmd:
-                subprocess.call(_voice_cmd + [text], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            elif buzzer_pub is not None:
-                for b in beeps:
-                    buzzer_pub.publish(b)
-                    time.sleep(b + 0.12)
-        except Exception as e:
-            print('  (voice: %s)' % e)
-
-
-def talk(text, beeps=INFO):
-    """Say something in the background (or beep). The same sentence is not repeated within 15 s."""
-    global _voice_q, _voice_cmd
-    if VOICE == 'off' or time.time() - _voice_last.get(text, 0) < 15:
-        return
-    _voice_last[text] = time.time()
-    if _voice_q is None:
-        import queue, shutil
-        _voice_q = queue.Queue()
-        if VOICE == 'auto':
-            for prog in ('espeak-ng', 'espeak', 'spd-say'):
-                if shutil.which(prog):
-                    _voice_cmd = [prog, '-s', str(VOICE_SPEED)] if prog != 'spd-say' else [prog, '-w']
-                    break
-        print('  (voice: %s)' % ('talking with ' + _voice_cmd[0] if _voice_cmd else 'buzzer beeps'))
-        threading.Thread(target=_voice_worker, daemon=True).start()
-    while _voice_q.qsize() >= 2:               # never fall behind: drop the oldest waiting sentence
-        try:
-            _voice_q.get_nowait()
-        except Exception:
-            break
-    print('  robot says: "%s"' % text)
-    _voice_q.put((text, beeps))
+def talk(*args, **kwargs):
+    """Voice removed: does nothing."""
+    pass
 
 
 def say(text):
     global status
     status = text
     print(text)
-    for start, words, beeps in SAYINGS:
-        if text.startswith(start):
-            talk(words, beeps)
-            break
-    if text.startswith('Cube ') and 'in the basket' in text:
-        talk('Done! Looking for the next one.', OK)
 
 
 def pause(sec):
     time.sleep(sec * SLOW)
 
 
+MIN_ARM_BATTERY = 6800      # millivolts: below this the arm servos do not move reliably
 MIN_BATTERY = 7500          # millivolts (middle of several readings): below this the robot will not drive
 RAMP_VEL_S, RAMP_ANG_S = 50.0, 0.3   # most the wheel speed (mm/s) / turn rate may rise per SECOND
 last_drive = [0.0, 0.0, 0.0, 0.0]  # sideways speed, forward speed, turn rate, time of the last command
@@ -594,21 +533,18 @@ def align_wrist():
 # ---------------- 3. grab, place, check ----------------
 def grab(base, reach, pitch, wrist=500):
     say('Grabbing')
-    offset = -0.04 + (pitch + 180) * (0.07 / 30.0)   # Hiwonder's reach correction
-    buzzer_pub.publish(0.1)
-    servos(500, ((1, GRIP_OPEN),))
-    pause(0.5)
-    if not ik_move(reach + offset, GRAB_Z, base, 1000, extra=((2, wrist),)):
+    offset = -0.04 + (pitch + 180) * (0.07 / 30.0) + REACH_TRIM   # Hiwonder's reach correction + your trim
+    base = int(clamp(base + BASE_TRIM, 0, 1000))
+    servos(600, ((1, GRIP_OPEN),))                        # open fully while still above the cube
+    pause(0.8)
+    if not ik_move(reach + offset, GRAB_Z, base, 1000, extra=((1, GRIP_OPEN), (2, wrist))):
         say('Cube is out of reach')
         return False
     pause(1.5)
-    servos(700, ((1, GRIP_CLOSE),))                      # first close: the fingers push the cube to the middle
-    pause(0.9)
-    servos(300, ((1, SETTLE_OPEN),))                     # loosen a little so the cube settles straight
-    pause(0.5)
-    servos(500, ((1, GRIP_CLOSE),))
-    pause(0.8)
-    servos(300, ((1, GRIP_CLOSE + GRIP_EXTRA),))         # second squeeze to seat the cube
+    print('  grabbing at base %d, reach %.3f m (trim: reach %+.3f, base %+d)' % (base, reach + offset, REACH_TRIM, BASE_TRIM))
+    servos(GRIP_SPEED, ((1, GRIP_CLOSE),))               # one slow, even close
+    pause(GRIP_SPEED / 1000.0 + 0.3)
+    servos(300, ((1, GRIP_CLOSE + GRIP_EXTRA),))         # firm squeeze
     pause(0.5)
     ik_move(reach + offset, GRAB_Z + LIFT_FIRST, base, 800, extra=((2, wrist),))   # lift straight up first
     pause(1.0)
@@ -616,7 +552,6 @@ def grab(base, reach, pitch, wrist=500):
 
 
 def carry():
-    talk('Got it! I picked up the cube.', OK)
     servos(1500, ((1, GRIP_CLOSE + GRIP_EXTRA), (2, 500), (3, 80), (4, 825), (5, 625), (6, 500)))
     pause(1.6)
 
@@ -690,8 +625,8 @@ def pick_up(base, reach, pitch, wrist):
         ref = cube_seen()
         if not grab(base, reach, pitch, wrist):
             return False
-        if holding(base, reach, ref):
-            carry()
+        if not HOLD_CHECK or holding(base, reach, ref):
+            carry()                                     # straight to the carry pose, then the basket
             return True
     say('Could not get hold of the cube after %d grabs' % GRAB_TRIES)
     servos(500, ((1, GRIP_OPEN),))
@@ -1256,13 +1191,14 @@ def main():
         print('Arm only: the wheels will not move. Put the cube 12-25 cm in front. Ctrl+C stops.')
     else:
         print('This mode DRIVES. Use it on the floor. Press Ctrl+C to stop.')
-    talk('Hello! I am looking for cubes to put in my basket.', INFO)
-    if not ARM_ONLY:
-        mv = battery_mv()
-        if mv is not None:
-            print('Battery: %.2f V' % (mv / 1000.0))
-            if mv < MIN_BATTERY:
-                print('Battery too low for driving (need at least %.1f V). Charge it first.' % (MIN_BATTERY / 1000.0))
+    mv = battery_mv()
+    if mv is not None:
+        print('Battery: %.2f V' % (mv / 1000.0))
+        need = MIN_ARM_BATTERY if ARM_ONLY else MIN_BATTERY
+        if mv < need:
+            print('Battery reads low (%.2f V, want %.1f V) - charge it if the arm or wheels are weak.'
+                  % (mv / 1000.0, need / 1000.0))
+            if not ARM_ONLY:
                 return
     placed, attempt = 0, 0
     while attempt < MAX_TRIES:
@@ -1272,16 +1208,13 @@ def main():
         print('--- Attempt %d of %d ---' % (attempt, MAX_TRIES))
         if MODE == 'frontarm':
             det = front_point()
-            if not det:
-                say('Front camera sees no cube - checking with the arm camera')
-                if not arm_find():
-                    if placed:
-                        break
-                    say('The front camera does not see a cube - place one in front of the robot')
-                    time.sleep(3)
-                    continue
-            else:
-                order_scan(det[0])
+            if not det:                       # detection is by the front camera only
+                if placed:
+                    break
+                say('The front camera does not see a cube - place one in front of the robot')
+                time.sleep(3)
+                continue
+            order_scan(det[0])                # arm camera then lines up, picks and drops
         if MODE == 'front':
             arm_carry()
             if not front_search():
