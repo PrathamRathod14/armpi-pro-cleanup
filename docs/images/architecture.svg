@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="745" viewBox="0 0 1000 745" font-family="Segoe UI, Arial, sans-serif" xmlns:c2pa="http://c2pa.org/manifest">
+  <title>ArmPi Pro clean-up robot: system architecture</title>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#555" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .t{font-size:14px;font-weight:600;fill:#222}
+      .s{font-size:11px;fill:#555}
+      .l{font-size:11px;fill:#444;font-style:italic}
+      .h{font-size:15px;font-weight:600;fill:#333}
+      .ar{stroke:#555;stroke-width:1.4;fill:none}
+      .hw{fill:#F1EFE8;stroke:#888780}
+      .ros{fill:#E6F1FB;stroke:#185FA5}
+      .main{fill:#EEEDFE;stroke:#534AB7}
+      .lap{fill:#FAEEDA;stroke:#854F0B}
+      .out{fill:#EAF3DE;stroke:#3B6D11}
+    </style>
+  </defs>
+  <rect width="1000" height="745" fill="#ffffff"/>
+  <text x="500" y="40" text-anchor="middle" style="font-size:20px;font-weight:600;fill:#222">ArmPi Pro clean-up robot: system architecture</text>
+
+  <!-- Laptop -->
+  <rect x="20" y="90" width="230" height="330" rx="14" fill="#FFFBF3" stroke="#854F0B" stroke-dasharray="6 4"/>
+  <text class="h" x="35" y="115">Laptop (Windows)</text>
+  <rect class="lap" x="35" y="140" width="200" height="80" rx="8"/>
+  <text class="t" x="135" y="165" text-anchor="middle">vlm_bridge.py</text>
+  <text class="s" x="135" y="185" text-anchor="middle">YOLO-World v2 (medium)</text>
+  <text class="s" x="135" y="202" text-anchor="middle">finds an object by its name</text>
+  <rect class="lap" x="35" y="320" width="200" height="80" rx="8"/>
+  <text class="t" x="135" y="345" text-anchor="middle">Web browser</text>
+  <text class="s" x="135" y="365" text-anchor="middle">docs/cameras.html</text>
+  <text class="s" x="135" y="382" text-anchor="middle">live camera views (:8080)</text>
+
+  <!-- Robot -->
+  <rect x="340" y="90" width="640" height="600" rx="14" fill="#FBFBFD" stroke="#185FA5" stroke-dasharray="6 4"/>
+  <text class="h" x="355" y="115">Robot: Raspberry Pi 4 · Ubuntu 18.04 · ROS Melodic</text>
+
+  <!-- Row 1: hardware sensors -->
+  <rect class="hw" x="505" y="140" width="135" height="70" rx="8"/>
+  <text class="t" x="572" y="168" text-anchor="middle">Arm camera</text>
+  <text class="s" x="572" y="188" text-anchor="middle">USB, on the arm</text>
+  <rect class="hw" x="655" y="140" width="135" height="70" rx="8"/>
+  <text class="t" x="722" y="168" text-anchor="middle">Front camera</text>
+  <text class="s" x="722" y="188" text-anchor="middle">ACEBOTT K210 module</text>
+  <rect class="hw" x="805" y="140" width="135" height="70" rx="8"/>
+  <text class="t" x="872" y="168" text-anchor="middle">Battery</text>
+  <text class="s" x="872" y="188" text-anchor="middle">2 cells, 8.4 V full</text>
+
+  <!-- Row 2: ROS nodes / servers -->
+  <rect class="ros" x="355" y="270" width="135" height="70" rx="8"/>
+  <text class="t" x="422" y="293" text-anchor="middle">Web servers</text>
+  <text class="s" x="422" y="312" text-anchor="middle">:8080 camera pictures</text>
+  <text class="s" x="422" y="328" text-anchor="middle">:9090 rosbridge</text>
+  <rect class="ros" x="505" y="270" width="135" height="70" rx="8"/>
+  <text class="t" x="572" y="298" text-anchor="middle">usb_cam</text>
+  <text class="s" x="572" y="318" text-anchor="middle">/usb_cam/image_raw</text>
+  <rect class="ros" x="655" y="270" width="135" height="70" rx="8"/>
+  <text class="t" x="722" y="298" text-anchor="middle">front_cam.py</text>
+  <text class="s" x="722" y="318" text-anchor="middle">detects on the K210</text>
+
+  <!-- Main program -->
+  <rect class="main" x="400" y="400" width="500" height="90" rx="10"/>
+  <text class="t" x="650" y="425" text-anchor="middle">fetch_blue.py (main program)</text>
+  <text class="s" x="650" y="447" text-anchor="middle">detect → drive → line up with inverse kinematics → grab → drop in basket</text>
+  <text class="s" x="650" y="467" text-anchor="middle">modes: look · arm · full · front · frontarm · frontlook · vlm · calibgrab</text>
+
+  <!-- Row 4: controllers -->
+  <rect class="out" x="355" y="540" width="135" height="60" rx="8"/>
+  <text class="t" x="422" y="563" text-anchor="middle">Servo controller</text>
+  <text class="s" x="422" y="582" text-anchor="middle">joint positions</text>
+  <rect class="out" x="505" y="540" width="135" height="60" rx="8"/>
+  <text class="t" x="572" y="563" text-anchor="middle">Chassis control</text>
+  <text class="s" x="572" y="582" text-anchor="middle">/set_velocity</text>
+  <rect class="out" x="655" y="540" width="135" height="60" rx="8"/>
+  <text class="t" x="722" y="563" text-anchor="middle">Buzzer</text>
+  <text class="s" x="722" y="582" text-anchor="middle">/sensor/buzzer</text>
+
+  <!-- Row 5: actuators -->
+  <rect class="hw" x="355" y="620" width="135" height="50" rx="8"/>
+  <text class="t" x="422" y="650" text-anchor="middle">Arm: 6 servos</text>
+  <rect class="hw" x="505" y="620" width="135" height="50" rx="8"/>
+  <text class="t" x="572" y="650" text-anchor="middle">Mecanum wheels</text>
+
+  <!-- Arrows: sensors to nodes -->
+  <line class="ar" x1="572" y1="210" x2="572" y2="266" marker-end="url(#a)"/>
+  <line class="ar" x1="722" y1="210" x2="722" y2="266" marker-end="url(#a)"/>
+  <text class="l" x="728" y="244">serial 1.5 Mbaud</text>
+  <!-- nodes to main -->
+  <line class="ar" x1="572" y1="340" x2="572" y2="396" marker-end="url(#a)"/>
+  <line class="ar" x1="722" y1="340" x2="722" y2="396" marker-end="url(#a)"/>
+  <text class="l" x="728" y="372">/front_cam/target</text>
+  <line class="ar" x1="872" y1="210" x2="872" y2="396" marker-end="url(#a)"/>
+  <text class="l" x="878" y="300">/sensor/</text>
+  <text class="l" x="878" y="314">battery</text>
+  <!-- camera to web server -->
+  <line class="ar" x1="505" y1="305" x2="494" y2="305" marker-end="url(#a)"/>
+  <!-- annotated picture back to web server -->
+  <line class="ar" x1="415" y1="400" x2="415" y2="344" marker-end="url(#a)"/>
+  <text class="l" x="421" y="378">/cleanup/image</text>
+  <!-- main to controllers -->
+  <line class="ar" x1="422" y1="490" x2="422" y2="536" marker-end="url(#a)"/>
+  <line class="ar" x1="572" y1="490" x2="572" y2="536" marker-end="url(#a)"/>
+  <line class="ar" x1="722" y1="490" x2="722" y2="536" marker-end="url(#a)"/>
+  <line class="ar" x1="422" y1="600" x2="422" y2="616" marker-end="url(#a)"/>
+  <line class="ar" x1="572" y1="600" x2="572" y2="616" marker-end="url(#a)"/>
+
+  <!-- Laptop <-> robot -->
+  <path class="ar" d="M353 285 L320 285 L320 190 L239 190" marker-end="url(#a)"/>
+  <text class="l" x="244" y="182">pictures :8080</text>
+  <path class="ar" d="M237 210 L300 210 L300 320 L351 320" marker-end="url(#a)"/>
+  <text class="l" x="244" y="340">/vlm/target :9090</text>
+
+  <!-- Legend -->
+  <rect class="hw" x="40" y="712" width="16" height="12" rx="2"/><text class="s" x="62" y="722">Hardware</text>
+  <rect class="ros" x="150" y="712" width="16" height="12" rx="2"/><text class="s" x="172" y="722">ROS nodes and servers</text>
+  <rect class="main" x="320" y="712" width="16" height="12" rx="2"/><text class="s" x="342" y="722">Main program</text>
+  <rect class="out" x="450" y="712" width="16" height="12" rx="2"/><text class="s" x="472" y="722">Hiwonder controllers</text>
+  <rect class="lap" x="610" y="712" width="16" height="12" rx="2"/><text class="s" x="632" y="722">Laptop (vlm mode, viewing)</text>
+<metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTo0ZjdiMzBkMC05MWMwLTQwYTgtYjUxMS1jNWI1ODIxNjgwOTkAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaFxussTF166U6Q1EOy6vUycAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo3YjBjNTgwNC05MGYyLTQxZTUtYWVhNy03ZTM3ODQ1ZTRmZDlscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNof8xU/cLF1mqXvcdz0FJuAwAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggaSmuzt0qBD6x58MLykSTVRAljaYGPrgU/ELQk3lKxYikZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaDZwCGqrnX4ZPG/MZDW4acMAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRMAAAAAAAAAAAAAAAAZGhhc2hYIC8rQVDwwOiEzpLwuaCJ/+wm5zrKwlcqN3DOrY29bNfIZG5hbWVuanVtYmYgbWFuaWZlc3RqZXhjbHVzaW9uc4GiZXN0YXJ0GR11Zmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjRmN2IzMGQwLTkxYzAtNDBhOC1iNTExLWM1YjU4MjE2ODA5OS9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOmMzZjkwMjBkLTdmNzMtNDkxZS04MjYwLTk3OGIxZTZhZTZmOXJjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCBpKa7O3SoEPrHnwwvKRJNVECWNpgY+uBT8QtCTeUrFiKJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggXa/w+/WkB7PMEdS3zJWNGu/oAVi85e+AD52xH5GDqfWiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggmY7FR0rzn93N4yfqHJeZtYOx0MLCsi8CbnEr3zGhH1R0Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQHipvftBV8yATdnHG5W7NrZoPWHlAUgg1UmQH7XHusKfFJ8fQdzAdUjnAtfrfOOZoAOkCkl4e9o3fwSr82neOA4=</c2pa:manifest></metadata></svg>
